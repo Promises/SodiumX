@@ -12,6 +12,7 @@ extern "C" {
 
 void dash_debug_open();
 void dash_debug_close();
+void dash_debug_install_gpu_hook(void);
 
 #ifdef __cplusplus
 }

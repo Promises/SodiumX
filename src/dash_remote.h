@@ -25,11 +25,21 @@ extern "C" {
 #define DASH_REMOTE_PORT 9876
 #endif
 
+#ifdef NXDK
+#define DASH_DEBUG_WAIT_FLAG "E:\\UDATA\\LithiumX\\debug_wait"
+#define DASH_REBUILD_DB_FLAG "E:\\UDATA\\LithiumX\\rebuild_db"
+#else
+#define DASH_DEBUG_WAIT_FLAG "/tmp/lithiumx_debug_wait"
+#define DASH_REBUILD_DB_FLAG "/tmp/lithiumx_rebuild_db"
+#endif
+
 #define DASH_REMOTE_MAX_CLIENTS 4
 
 void dash_remote_init(void);
+void dash_remote_init_early(void); /* Retries bind until network ready — for debug flag */
 void dash_remote_deinit(void);
 void dash_remote_log(const char *fmt, ...);
+bool dash_remote_has_log_client(void);
 
 #ifdef __cplusplus
 }

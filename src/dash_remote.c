@@ -101,27 +101,64 @@ static void inject_key(int key)
 }
 
 /* ── Screenshot: render to BMP in memory and send over socket ── */
-extern SDL_Renderer *renderer;
-extern SDL_Window *window;
+#ifdef NXDK
+#include <pbkit/pbkit.h>
+#endif
 
-static void handle_screenshot(SOCKET_TYPE fd)
+static SDL_Surface *capture_framebuffer(void)
 {
+#ifdef NXDK
+    /* Force LVGL to redraw and wait for GPU to finish rendering */
+    _lv_disp_refr_timer(NULL);
+    while (pb_busy()) { SDL_Delay(0); }
+    while (pb_finished()) { SDL_Delay(0); }
+
+    int w = (int)pb_back_buffer_width();
+    int h = (int)pb_back_buffer_height();
+    int pitch = (int)pb_back_buffer_pitch();
+    DWORD *fb = pb_back_buffer();
+
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!surface) return NULL;
+
+    for (int y = 0; y < h; y++)
+    {
+        memcpy((uint8_t *)surface->pixels + y * surface->pitch,
+               (uint8_t *)fb + y * pitch,
+               w * 4);
+    }
+    return surface;
+#else
+    extern SDL_Renderer *renderer;
     int w, h;
     SDL_GetRendererOutputSize(renderer, &w, &h);
 
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!surface) return NULL;
+
+    SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
+    return surface;
+#endif
+}
+
+static void handle_screenshot(SOCKET_TYPE fd)
+{
+    lvgl_getlock();
+    SDL_Surface *surface = capture_framebuffer();
+    lvgl_removelock();
+
     if (!surface)
     {
         send_str(fd, "ERR screenshot failed\n");
         return;
     }
 
-    lvgl_getlock();
-    SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
-    lvgl_removelock();
-
     /* Save to temp file then read and send */
+#ifdef NXDK
+    const char *path = "E:\\UDATA\\LithiumX\\screenshot.bmp";
+#else
     const char *path = "/tmp/lithiumx_screenshot.bmp";
+#endif
     SDL_SaveBMP(surface, path);
     SDL_FreeSurface(surface);
 
@@ -228,6 +265,42 @@ static void process_command(remote_client_t *client, char *line)
         send_str(client->fd, "OK shutting down\n");
         lv_set_quit(LV_SHUTDOWN);
     }
+    else if (strncmp(line, "launch ", 7) == 0)
+    {
+        const char *xbe_path = line + 7;
+        send_str(client->fd, "OK launching\n");
+        strncpy(dash_launch_path, xbe_path, DASH_MAX_PATH - 1);
+        lv_set_quit(LV_QUIT_OTHER);
+    }
+    else if (strncmp(line, "reload", 6) == 0)
+    {
+        /* reload [--debug] [--rebuild-db]
+         * --debug:      new instance waits for log client before booting
+         * --rebuild-db: delete the DB so it rescans all game folders */
+        bool flag_debug = (strstr(line, "--debug") != NULL);
+        bool flag_rebuild = (strstr(line, "--rebuild-db") != NULL);
+
+        char resp[128];
+        snprintf(resp, sizeof(resp), "OK reload%s%s\n",
+                 flag_debug ? " +debug" : "",
+                 flag_rebuild ? " +rebuild-db" : "");
+        send_str(client->fd, resp);
+
+        if (flag_debug)
+        {
+            FILE *f = fopen(DASH_DEBUG_WAIT_FLAG, "w");
+            if (f) { fprintf(f, "1"); fclose(f); }
+        }
+
+        if (flag_rebuild)
+        {
+            FILE *f = fopen(DASH_REBUILD_DB_FLAG, "w");
+            if (f) { fprintf(f, "1"); fclose(f); }
+        }
+
+        strncpy(dash_launch_path, "F:\\Apps\\testing\\default.xbe", DASH_MAX_PATH - 1);
+        lv_set_quit(LV_QUIT_OTHER);
+    }
     else
     {
         send_str(client->fd, "ERR unknown command\n");
@@ -311,22 +384,10 @@ static int server_thread_fn(void *param)
 
 /* ── Public API ── */
 
-void dash_remote_init(void)
+static bool try_bind_listen(void)
 {
-    clients_mutex = SDL_CreateMutex();
-    for (int i = 0; i < DASH_REMOTE_MAX_CLIENTS; i++)
-    {
-        clients[i].fd = INVALID_SOCK;
-        clients[i].log_streaming = false;
-    }
-
-    /* Create listening socket */
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_fd == INVALID_SOCK)
-    {
-        printf("[REMOTE] Failed to create socket\n");
-        return;
-    }
+    if (listen_fd == INVALID_SOCK) return false;
 
     int opt = 1;
     setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
@@ -339,23 +400,77 @@ void dash_remote_init(void)
 
     if (bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        printf("[REMOTE] Failed to bind port %d\n", DASH_REMOTE_PORT);
         closesocket(listen_fd);
         listen_fd = INVALID_SOCK;
-        return;
+        return false;
     }
 
     if (listen(listen_fd, 2) < 0)
     {
-        printf("[REMOTE] Failed to listen\n");
         closesocket(listen_fd);
         listen_fd = INVALID_SOCK;
-        return;
+        return false;
     }
 
     set_nonblocking(listen_fd);
-    server_running = true;
-    server_thread = SDL_CreateThread(server_thread_fn, "remote_debug", NULL);
+    return true;
+}
+
+static int startup_thread_fn(void *param)
+{
+    (void)param;
+    /* Retry until network stack is ready (lwIP may still be initializing) */
+    for (int attempt = 0; attempt < 60; attempt++)
+    {
+        if (try_bind_listen())
+        {
+            printf("[REMOTE] Server listening on port %d\n", DASH_REMOTE_PORT);
+            server_running = true;
+            server_thread_fn(NULL);
+            return 0;
+        }
+        SDL_Delay(500);
+    }
+    printf("[REMOTE] Failed to bind port %d after retries\n", DASH_REMOTE_PORT);
+    return 1;
+}
+
+void dash_remote_init(void)
+{
+    /* Skip if already initialized by dash_remote_init_early */
+    if (clients_mutex) return;
+
+    clients_mutex = SDL_CreateMutex();
+    for (int i = 0; i < DASH_REMOTE_MAX_CLIENTS; i++)
+    {
+        clients[i].fd = INVALID_SOCK;
+        clients[i].log_streaming = false;
+    }
+
+    if (try_bind_listen())
+    {
+        printf("[REMOTE] Server listening on port %d\n", DASH_REMOTE_PORT);
+        server_running = true;
+        server_thread = SDL_CreateThread(server_thread_fn, "remote_debug", NULL);
+    }
+    else
+    {
+        printf("[REMOTE] Failed to bind port %d\n", DASH_REMOTE_PORT);
+    }
+}
+
+/* Early init variant: retries bind in a background thread until network is ready.
+ * Use when debug flag is set so the server is available during early boot. */
+void dash_remote_init_early(void)
+{
+    clients_mutex = SDL_CreateMutex();
+    for (int i = 0; i < DASH_REMOTE_MAX_CLIENTS; i++)
+    {
+        clients[i].fd = INVALID_SOCK;
+        clients[i].log_streaming = false;
+    }
+
+    server_thread = SDL_CreateThread(startup_thread_fn, "remote_debug", NULL);
 }
 
 void dash_remote_deinit(void)
@@ -418,4 +533,21 @@ void dash_remote_log(const char *fmt, ...)
         }
     }
     SDL_UnlockMutex(clients_mutex);
+}
+
+bool dash_remote_has_log_client(void)
+{
+    if (!clients_mutex) return false;
+    bool found = false;
+    SDL_LockMutex(clients_mutex);
+    for (int i = 0; i < DASH_REMOTE_MAX_CLIENTS; i++)
+    {
+        if (clients[i].fd != INVALID_SOCK && clients[i].log_streaming)
+        {
+            found = true;
+            break;
+        }
+    }
+    SDL_UnlockMutex(clients_mutex);
+    return found;
 }

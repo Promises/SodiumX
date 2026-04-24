@@ -1,10 +1,27 @@
 #include <lithiumx.h>
 
+#ifdef NXDK
+/* pbkit GPU error hook — forward errors to remote log daemon */
+extern void (*pb_debug_print_hook)(const char *msg);
+
+static void gpu_error_hook(const char *msg)
+{
+    dash_remote_log("[GPU] %s", msg);
+}
+
+void dash_debug_install_gpu_hook(void)
+{
+    pb_debug_print_hook = gpu_error_hook;
+}
+#else
+void dash_debug_install_gpu_hook(void) {}
+#endif
+
 static bool debug_info_visible = false;
 static SDL_Thread *debug_info_thread;
 
 #ifdef NXDK
-static void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used)
+void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used)
 {
     MM_STATISTICS MemoryStatistics;
     MemoryStatistics.Length = sizeof(MM_STATISTICS);
@@ -14,7 +31,7 @@ static void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used)
     return;
 }
 #else
-static void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used)
+void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used)
 {
     *mem_size = 0;
     *mem_used = 0;

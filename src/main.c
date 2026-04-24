@@ -160,6 +160,19 @@ int main(int argc, char* argv[]) {
     dash_printf(LEVEL_TRACE, "Initialising Platform\n");
     platform_init(&w, &h);
 
+    /* Check debug flag early — if set, start remote server before display init
+     * so GPU errors during init can be captured via log streaming. */
+    {
+        FILE *dbg_flag = fopen(DASH_DEBUG_WAIT_FLAG, "r");
+        if (dbg_flag)
+        {
+            fclose(dbg_flag);
+            dash_printf(LEVEL_TRACE, "Debug flag detected — starting early remote server\n");
+            dash_remote_init_early();
+            dash_debug_install_gpu_hook();
+        }
+    }
+
     lvgl_mutex = SDL_CreateMutex();
     assert(lvgl_mutex);
 
@@ -170,11 +183,75 @@ int main(int argc, char* argv[]) {
     lv_port_disp_init(w, h);
     lv_port_indev_init(false);
 
-    dash_printf(LEVEL_TRACE, "Creating dash\n");
-    dash_init();
-
     dash_printf(LEVEL_TRACE, "Starting remote debug server\n");
     dash_remote_init();
+
+    /* Wait-for-debugger gate: triggered by flag file from "reload-debug" command.
+     * Shows message, waits for log client or B press, then proceeds. */
+    {
+        bool wait_for_debug = false;
+        FILE *flag = fopen(DASH_DEBUG_WAIT_FLAG, "r");
+        if (flag)
+        {
+            fclose(flag);
+            remove(DASH_DEBUG_WAIT_FLAG);
+            wait_for_debug = true;
+        }
+
+        if (wait_for_debug)
+        {
+            lv_obj_t *wait_label = lv_label_create(lv_scr_act());
+            lv_label_set_text(wait_label, "Waiting for debug client...\n"
+                                           "Connect and send: log on\n\n"
+                                           "Or press B / Backspace to skip");
+            lv_obj_set_style_text_color(wait_label, lv_color_white(), LV_PART_MAIN);
+            lv_obj_set_style_text_font(wait_label, &lv_font_montserrat_16, LV_PART_MAIN);
+            lv_obj_set_style_text_align(wait_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+            lv_obj_center(wait_label);
+
+            dash_printf(LEVEL_TRACE, "Debug wait: listening on port %d...\n", DASH_REMOTE_PORT);
+
+            while (!dash_remote_has_log_client())
+            {
+                lvgl_getlock();
+                lv_task_handler();
+                lvgl_removelock();
+            #ifdef NXDK
+                _lv_disp_refr_timer(NULL);
+                pb_wait_for_vbl();
+            #else
+                SDL_Delay(LV_DISP_DEF_REFR_PERIOD);
+            #endif
+
+                SDL_Event e;
+                while (SDL_PollEvent(&e))
+                {
+                    if ((e.type == SDL_CONTROLLERBUTTONDOWN && e.cbutton.button == SDL_CONTROLLER_BUTTON_B) ||
+                        (e.type == SDL_KEYDOWN && (e.key.keysym.sym == SDLK_ESCAPE || e.key.keysym.sym == SDLK_BACKSPACE)))
+                        goto skip_wait;
+                }
+            }
+            dash_printf(LEVEL_TRACE, "Debug client connected! Proceeding...\n");
+            skip_wait:
+            lv_obj_del(wait_label);
+            lv_obj_clean(lv_scr_act());
+        }
+    }
+
+    /* Check rebuild-db flag — delete DB before init so it gets rebuilt */
+    {
+        FILE *flag = fopen(DASH_REBUILD_DB_FLAG, "r");
+        if (flag)
+        {
+            fclose(flag);
+            remove(DASH_REBUILD_DB_FLAG);
+            dash_printf(LEVEL_TRACE, "Rebuild DB flag found — deleting database\n");
+            remove(DASH_DATABASE_PATH);
+        }
+    }
+
+    dash_printf(LEVEL_TRACE, "Creating dash\n");
+    dash_init();
 
     dash_printf(LEVEL_TRACE, "Enter dash busy loop\n");
 
