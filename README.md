@@ -72,6 +72,16 @@ cmake .. -G "MinGW Makefiles"
 cmake --build .
 ```
 
+## Build (macOS Version)
+```
+brew install cmake sdl2 jpeg-turbo pkg-config
+git clone --recursive https://github.com/Ryzee119/LithiumX.git
+cd LithiumX
+mkdir build && cd build
+cmake .. -G "Unix Makefiles"
+cmake --build .
+```
+
 ## Licence and Attribution
 This project is shared under the [MIT license](https://github.com/Ryzee119/LithiumX/blob/master/LICENSE), however this project includes code by others. Refer to the list below.
 * [lvgl](https://github.com/lvgl)/**[lvgl](https://github.com/lvgl/lvgl)** shared under the [MIT License](https://github.com/lvgl/lvgl/blob/master/LICENCE.txt).

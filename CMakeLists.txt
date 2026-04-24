@@ -51,6 +51,7 @@ set(LV_CONF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/lv_conf.h" CACHE STRING "" FOR
 set(LV_CONF_BUILD_DISABLE_EXAMPLES 1)
 set(LV_CONF_BUILD_DISABLE_DEMOS 1)
 include(src/libs/lvgl/CMakeLists.txt)
+target_include_directories(lvgl PUBLIC ${SDL2_INCLUDE_DIRS})
 
 set(SOURCES
     src/main.c
@@ -86,6 +87,7 @@ target_compile_options(LithiumX PUBLIC -Wall -Wextra)
 target_compile_definitions(LithiumX PUBLIC "-DLVGL_USE_CUSTOM_KEYBOARD_MAP")
 target_include_directories(LithiumX PUBLIC . libs)
 
+target_link_directories(LithiumX PRIVATE ${SDL2_LIBRARY_DIRS} ${TURBOJPEG_LIBRARY_DIRS} ${LIBJPEG_LIBRARY_DIRS})
 target_link_libraries(LithiumX PRIVATE lvgl sqlite jpg_decoder toml sxml tlsf ${SDL2_LIBRARIES})
 
 #target_compile_options(LithiumX PRIVATE -O2)
