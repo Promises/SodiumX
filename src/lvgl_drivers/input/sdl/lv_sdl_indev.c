@@ -276,6 +276,13 @@ static void keypad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
         // Handle keyboard button events
         if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
         {
+            // F12: take screenshot (on key down only)
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F12)
+            {
+                extern void lv_screenshot_save(void);
+                lv_screenshot_save();
+            }
+
             int i = 0;
             data->key = 0;
             while (lvgl_keyboard_map[i].sdl_map !=0)

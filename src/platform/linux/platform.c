@@ -6,8 +6,8 @@
 
 void platform_init(int *w, int *h)
 {
-    *w = 640;
-    *h = 480;
+    *w = 1280;
+    *h = 720;
     printf("%s\n", __FUNCTION__);
 }
 

@@ -34,6 +34,12 @@ int strcasecmp(const char *s1, const char *s2);
 #include "dash_browser.h"
 #include "dash_launcher.h"
 #include "dash_debug.h"
+#include "dash_anim.h"
+#include "dash_statusbar.h"
+#include "dash_controls_bar.h"
+#include "dash_sysinfo.h"
+#include "dash_backdrop.h"
+#include "dash_remote.h"
 
 #include "lvgl_drivers/lv_port_disp.h"
 #include "lvgl_drivers/lv_port_indev.h"
@@ -132,6 +138,13 @@ int strcasecmp(const char *s1, const char *s2);
 #define DASH_PREV_PAGE '<'
 #define DASH_SETTINGS_PAGE 's'
 #define DASH_INFO_PAGE 'i'
+#define DASH_PREV_TAB 't'
+#define DASH_NEXT_TAB 'T'
+
+/* Tile dimensions for horizontal rail (720p / 480p) */
+#define DASH_TILE_W   ((lv_obj_get_width(lv_scr_act()) <= 640) ? 153 : 230)
+#define DASH_TILE_H   ((lv_obj_get_width(lv_scr_act()) <= 640) ? 213 : 320)
+#define DASH_TILE_GAP ((lv_obj_get_width(lv_scr_act()) <= 640) ? 17 : 26)
 
 // There is one 'parser' per 'tile'. The parser asynchronously parses all the path set my the xml and adds
 // eatch item. Each parser contains a image scrolling container 'scroller' to show all the game art etc.
@@ -164,7 +177,7 @@ typedef struct
 } title_t;
 
 #ifndef NANO_DEBUG_LEVEL
-#define NANO_DEBUG_LEVEL LEVEL_WARN
+#define NANO_DEBUG_LEVEL LEVEL_TRACE
 #endif
 
 typedef enum{
@@ -178,8 +191,12 @@ typedef enum{
 void dash_printf(dash_debug_level_t level, const char *format, ...);
 
 void dash_init(void);
-void dash_create();
+void dash_create(void);
 void dash_deinit(void);
+void dash_set_tab(int tab_index);
+int dash_get_tab(void);
+void dash_update_meta(const char *title, const char *subtitle);
+void dash_update_hero_counter(int selected, int total);
 void lvgl_getlock(void);
 void lvgl_removelock(void);
 void *lx_mem_alloc(size_t size);

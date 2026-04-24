@@ -2,391 +2,65 @@
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
 #include "lithiumx.h"
+#include "dash_anim.h"
 
-static const char *f_off = "Fahrenheit Display   OFF";
-static const char *d_off = "Autolaunch DVD       OFF";
-static const char *i_off = "Debug Information   OFF";
-static const char *f_on = "Fahrenheit Display   ON";
-static const char *d_on = "Autolaunch DVD       ON";
-static const char *i_on = "Debug Information    ON";
+/* ============================================================
+ *  Settings persistence (read/write via SQLite blob)
+ * ============================================================ */
+static void dash_settings_set_v3_defaults(void)
+{
+    dash_settings.accent_index = ACCENT_GREEN;
+    dash_settings.show_fps_overlay = false;
+    dash_settings.show_controller_hints = true;
+    dash_settings.show_clock_chip = true;
+    dash_settings.show_network_chip = true;
+    dash_settings.show_temp_chip = true;
+    dash_settings.animated_background = true;
+    dash_settings.backdrop_blur = true;
+    dash_settings.tile_parallax = true;
+    dash_settings.film_grain = true;
+    dash_settings.resolution_mode = 1;
+    dash_settings.audio_output = 0;
+    dash_settings.ui_sounds = true;
+    dash_settings.ftp_enabled = true;
+    lv_memset(dash_settings._padding, 0, sizeof(dash_settings._padding));
+}
 
 static int dash_settings_read_callback(void *param, int argc, char **argv, char **azColName)
 {
-    (void)param;
-    (void)azColName;
-    assert (argc == 1);
+    (void)param; (void)azColName;
+    assert(argc == 1);
+    if (argc == 0) return 0;
 
-    if (argc == 0)
-    {
-        return 0;
-    }
+    unsigned int magic = *(unsigned int *)argv[0];
 
-    dash_settings_t *_dash_settings = (dash_settings_t *)argv[0];
-    if (_dash_settings->magic == DASH_SETTINGS_MAGIC)
+    if (magic == DASH_SETTINGS_MAGIC)
     {
         lv_memcpy(&dash_settings, argv[0], sizeof(dash_settings));
     }
+    else if (magic == DASH_SETTINGS_MAGIC_V2)
+    {
+        dash_settings_v2_t old;
+        lv_memcpy(&old, argv[0], sizeof(dash_settings_v2_t));
+
+        dash_settings.magic = DASH_SETTINGS_MAGIC;
+        dash_settings.use_fahrenheit = old.use_fahrenheit;
+        dash_settings.auto_launch_dvd = old.auto_launch_dvd;
+        dash_settings.show_debug_info = old.show_debug_info;
+        dash_settings.startup_page_index = old.startup_page_index;
+        dash_settings.theme_colour = old.theme_colour;
+        dash_settings.max_recent_items = old.max_recent_items;
+        dash_settings.items_per_row = old.items_per_row;
+        lv_memcpy(dash_settings.earliest_recent_date, old.earliest_recent_date,
+                   sizeof(dash_settings.earliest_recent_date));
+        lv_memcpy(dash_settings.sort_strings, old.sort_strings,
+                   sizeof(dash_settings.sort_strings));
+
+        dash_settings_set_v3_defaults();
+        dash_settings.show_fps_overlay = old.show_debug_info;
+        dash_settings_apply(false);
+    }
     return 0;
-}
-
-static void fahrenheit_change_callback(void *param)
-{
-    dash_settings.use_fahrenheit = LV_MIN(1, dash_settings.use_fahrenheit);
-    dash_settings.use_fahrenheit ^= 1;
-    lv_table_set_cell_value(param, 0, 0, (dash_settings.use_fahrenheit) ? f_on : f_off);
-    dash_settings_apply(false);
-}
-
-static void autolaunch_dvd_change_callback(void *param)
-{
-    dash_settings.auto_launch_dvd = LV_MIN(1, dash_settings.auto_launch_dvd);
-    dash_settings.auto_launch_dvd ^= 1;
-    lv_table_set_cell_value(param, 1, 0, (dash_settings.auto_launch_dvd) ? d_on : d_off);
-    dash_settings_apply(false);
-}
-
-static void debug_info_change_callback(void *param)
-{
-    dash_settings.show_debug_info = LV_MIN(1, dash_settings.show_debug_info);
-    dash_settings.show_debug_info ^= 1;
-    lv_table_set_cell_value(param, 2, 0, (dash_settings.show_debug_info) ? i_on : i_off);
-    dash_settings_apply(false);
-
-    if (dash_settings.show_debug_info)
-    {
-        dash_debug_open();
-    }
-    else
-    {
-        dash_debug_close();
-    }
-}
-
-static void change_page_sort_sub_submenu_callback(void *param)
-{
-    int values = (int)(intptr_t)param;
-    int page_index = values >> 16;
-    int sort_index = values & 0xFF;
-    int current_sort_index;
-
-    int cursor = 0;
-    int max_len = DASH_MAX_PATH * dash_scroller_get_page_count();
-    char *new_sorts = lv_mem_alloc(max_len);
-    for (int i = 0; i < dash_scroller_get_page_count(); i++)
-    {
-        const char *page_title = dash_scroller_get_title(i);
-        assert(page_title != NULL);
-        // Dont want to sort the Recent Page
-        if (strcmp(page_title, "Recent") == 0)
-        {
-            continue;
-        }
-        current_sort_index = 0;
-        dash_scroller_get_sort_value(page_title, &current_sort_index);
-        cursor += lv_snprintf(&new_sorts[cursor], max_len - cursor, "%s=%d ",
-                              page_title, (i == page_index) ? sort_index : current_sort_index);
-    }
-    strncpy(dash_settings.sort_strings, new_sorts, sizeof(dash_settings.sort_strings) - 1);
-    lv_mem_free(new_sorts);
-    dash_settings_apply(true);
-    dash_scroller_resort_page(dash_scroller_get_title(page_index));
-}
-
-static void startup_page_change_submenu_callback(void *param)
-{
-    int new_index = (int)((intptr_t)param);
-    dash_settings.startup_page_index = new_index;
-    dash_settings_apply(true);
-}
-
-static void change_startup_page_submenu(void *param)
-{
-    (void)param;
-
-    int page_cnt = dash_scroller_get_page_count();
-    menu_items_t items[page_cnt];
-    for (int i = 0; i < page_cnt; i++)
-    {
-        items[i].cb = startup_page_change_submenu_callback;
-        items[i].callback_param = (void *)((intptr_t)i);
-        items[i].confirm_box = NULL;
-        items[i].str = dash_scroller_get_title(i);
-    }
-
-    lv_obj_t *menu = menu_open(items, DASH_ARRAY_SIZE(items));
-    menu_force_value(menu, dash_settings.startup_page_index);
-}
-
-static void change_page_sort_sub_submenu(void *param)
-{
-    (void)param;
-    int page_index = (int)(intptr_t)param;
-    int p = page_index << 16;
-
-    // Instead of allocating memory for a parameter we pack in the sort index and page index into
-    // the pointer
-    menu_items_t items[] =
-        {
-            {"A-Z", change_page_sort_sub_submenu_callback, (void *)(intptr_t)(DASH_SORT_A_Z | p), NULL},
-            {"Rating", change_page_sort_sub_submenu_callback, (void *)(intptr_t)(DASH_SORT_RATING | p), NULL},
-            {"Last Launch", change_page_sort_sub_submenu_callback, (void *)(intptr_t)(DASH_SORT_LAST_LAUNCH | p), NULL},
-            {"Release", change_page_sort_sub_submenu_callback, (void *)(intptr_t)(DASH_SORT_RELEASE_DATE | p), NULL},
-        };
-
-    lv_obj_t *menu = menu_open(items, DASH_ARRAY_SIZE(items));
-    const char *page_title = dash_scroller_get_title(page_index);
-    if (page_title)
-    {
-        int sort_value;
-        if (dash_scroller_get_sort_value(page_title, &sort_value))
-        {
-            menu_force_value(menu, sort_value);
-        }
-    }
-}
-
-static void change_page_sort_submenu(void *param)
-{
-    (void)param;
-
-    int page_cnt = dash_scroller_get_page_count();
-    menu_items_t items[page_cnt];
-    int rows = 0;
-    for (int i = 0; i < page_cnt; i++)
-    {
-        // Ignore recent page as we dont want to sort that
-        if (strcmp(dash_scroller_get_title(i), "Recent") == 0)
-        {
-            continue;
-        }
-        items[rows].cb = change_page_sort_sub_submenu;
-        items[rows].callback_param = (void *)((intptr_t)i);
-        items[rows].confirm_box = NULL;
-        items[rows].str = dash_scroller_get_title(i);
-        rows++;
-    }
-
-    menu_open(items, rows);
-}
-
-static void change_items_per_row_submenu_cb(void *param)
-{
-    int n = (intptr_t)param;
-    dash_settings.items_per_row = n;
-    dash_settings_apply(true);
-}
-
-static void change_items_per_row(void *param) {
-    const uint8_t min_items = 4;
-    const uint8_t max_items = 12;
-    const uint8_t count = max_items - min_items + 1;
-    menu_items_t *items = lv_mem_alloc(sizeof(menu_items_t) * count);
-    for (int i = 0; i < count; i++)
-    {
-        items[i].callback_param = (void *)(intptr_t)i + min_items;
-        items[i].cb = change_items_per_row_submenu_cb;
-        items[i].confirm_box = NULL;
-        items[i].str = "";
-    }
-
-    lv_obj_t *number_list = menu_open(items, count);
-    for (int i = 0; i < count; i++)
-    {
-        lv_table_set_cell_value_fmt(number_list, i, 0, "%d", i + min_items);
-    }
-    dash_settings.items_per_row = LV_CLAMP(min_items, dash_settings.items_per_row, max_items);
-    menu_force_value(number_list, dash_settings.items_per_row - min_items);
-}
-
-static void change_max_recent_submenu_cb(void *param)
-{
-    int n = (intptr_t)param;
-    dash_settings.max_recent_items = n;
-    dash_settings_apply(true);
-}
-
-static void change_max_recent_submenu(void *param)
-{
-    (void) param;
-    const int MAX_RECENT_ITEMS = 32;
-    menu_items_t *items = lv_mem_alloc(sizeof(menu_items_t) * MAX_RECENT_ITEMS);
-    for (int i = 0; i < MAX_RECENT_ITEMS; i++)
-    {
-        items[i].callback_param = (void *)(intptr_t)i + 1;
-        items[i].cb = change_max_recent_submenu_cb;
-        items[i].confirm_box = NULL;
-        items[i].str = "";
-    }
-    lv_obj_t *number_list = menu_open(items, MAX_RECENT_ITEMS);
-    for (int i = 0; i < MAX_RECENT_ITEMS; i++)
-    {
-        lv_table_set_cell_value_fmt(number_list, i, 0, "%d", i + 1);
-    }
-    dash_settings.max_recent_items = LV_CLAMP(1, dash_settings.max_recent_items, MAX_RECENT_ITEMS);
-    menu_force_value(number_list, dash_settings.max_recent_items - 1);
-}
-
-#define COLOR_HSV_MIN_V (1)
-#define COLOR_TABLE_HUE_RESOLUTION (18)
-#define COLOR_TABLE_VALUE_RESOLUTION (10)
-#define COLOR_TABLE_HOR_CNT (360 / COLOR_TABLE_HUE_RESOLUTION)
-#define COLOR_TABLE_VER_CNT ((100 / COLOR_TABLE_VALUE_RESOLUTION) - COLOR_HSV_MIN_V)
-lv_color_t *hsv_colors;
-
-static void get_grid_from_rgb(lv_color_t rgb, int *row, int *col)
-{
-    for (int i = 0; i < (COLOR_TABLE_HOR_CNT * COLOR_TABLE_VER_CNT); i++)
-    {
-        lv_color_t rgb_check = hsv_colors[i];
-        if (memcmp(&rgb_check, &rgb, sizeof(lv_color_t)) == 0)
-        {
-            int c = i % COLOR_TABLE_HOR_CNT;
-            int r = i / COLOR_TABLE_HOR_CNT;
-            *row = r;
-            *col = c;
-            return;
-        }
-    }
-
-    // Couldnt find exact match. Fall back to approximate
-    lv_color_hsv_t hsv = lv_color_rgb_to_hsv(rgb.ch.red, rgb.ch.green, rgb.ch.blue);
-    *col = hsv.h / COLOR_TABLE_HUE_RESOLUTION;
-    *row = hsv.v / COLOR_TABLE_VALUE_RESOLUTION;
-}
-
-static void base_color_change_submenu_callback(lv_event_t *event)
-{
-    lv_obj_t *target = lv_event_get_target(event);
-   
-    lv_obj_t *color_rect = lv_event_get_user_data(event);
-    lv_table_t *table = (lv_table_t *)target;
-    lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
-
-    lv_color_t c = hsv_colors[(table->row_act * table->col_cnt) + table->col_act];
-    lv_obj_set_style_bg_color(color_rect, c, LV_PART_MAIN);
-
-    dash_settings.theme_colour = (c.ch.red << 16) | (c.ch.green << 8) | (c.ch.blue);
-    if (key == LV_KEY_ENTER)
-    {
-        dash_settings_apply(true);
-    }
-}
-
-static void base_color_draw_hsv(lv_event_t *e)
-{
-    lv_obj_draw_part_dsc_t *dsc = lv_event_get_draw_part_dsc(e);
-    lv_obj_draw_part_dsc_t *pdsc = lv_event_get_param(e);
-    lv_table_t *table = (lv_table_t *)lv_event_get_target(e);
-
-    dsc->rect_dsc->bg_color = hsv_colors[pdsc->id];
-
-    unsigned int id = (table->row_act * COLOR_TABLE_HOR_CNT) + table->col_act;
-    if (pdsc->id == id)
-    {
-        dsc->rect_dsc->border_color = lv_color_white();
-        dsc->rect_dsc->border_width = 1;
-    }
-}
-
-static void hsv_table_clean(lv_event_t *e)
-{
-    (void) e;
-    lv_mem_free(hsv_colors);
-}
-
-static void change_base_color_submenu(void *param)
-{
-    (void)param;
-    lv_obj_t *c = container_open();
-
-    // Create a grid for our colour picker
-    lv_obj_t *hsv_table = lv_table_create(c);
-    lv_obj_align(hsv_table, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_style_border_width(hsv_table, 0, LV_PART_ITEMS);
-    lv_obj_set_style_bg_opa(hsv_table, LV_OPA_50, LV_PART_MAIN);
-
-    lv_table_set_col_cnt(hsv_table, COLOR_TABLE_HOR_CNT);
-    lv_table_set_row_cnt(hsv_table, COLOR_TABLE_VER_CNT);
-    lv_obj_set_style_min_height(hsv_table, 250 / COLOR_TABLE_VER_CNT, LV_PART_ITEMS);
-    lv_obj_set_style_max_height(hsv_table, 250 / COLOR_TABLE_VER_CNT, LV_PART_ITEMS);
-    for (int i = 0; i < COLOR_TABLE_HOR_CNT; i++)
-    {
-        lv_table_set_col_width(hsv_table, i, lv_obj_get_width(c) / COLOR_TABLE_HOR_CNT);
-    }
-    lv_obj_update_layout(hsv_table);
-
-    hsv_colors = lv_mem_alloc(COLOR_TABLE_HOR_CNT * COLOR_TABLE_VER_CNT * sizeof(lv_color_t));
-    for (int i = 0; i < (COLOR_TABLE_HOR_CNT * COLOR_TABLE_VER_CNT); i++)
-    {
-        int c = i % COLOR_TABLE_HOR_CNT;
-        int r = i / COLOR_TABLE_HOR_CNT;
-        lv_color_hsv_t hsv;
-        hsv.s = 100;
-        hsv.h = c * COLOR_TABLE_HUE_RESOLUTION;
-        hsv.v = (r + COLOR_HSV_MIN_V) * COLOR_TABLE_VALUE_RESOLUTION;
-        hsv_colors[i] = lv_color_hsv_to_rgb(hsv.h, hsv.s, hsv.v);
-    }
-    lv_obj_add_event_cb(hsv_table, base_color_draw_hsv, LV_EVENT_DRAW_PART_BEGIN, NULL);
-    lv_obj_add_event_cb(hsv_table, hsv_table_clean, LV_EVENT_DELETE, NULL);
-
-    lv_color_t current_theme = lv_color_make(dash_settings.theme_colour >> 16,
-                                             dash_settings.theme_colour >> 8,
-                                             dash_settings.theme_colour);
-
-    // Set the currently selected box to the current theme color.
-    int row,col;
-    get_grid_from_rgb(current_theme, &row, &col);
-    ((lv_table_t *)hsv_table)->row_act = row;
-    ((lv_table_t *)hsv_table)->col_act = col;
-
-    // Create a colored rectangle that displays the currently set color
-    lv_obj_t *rect = lv_obj_create(c);
-    lv_obj_add_style(rect, &object_style, LV_PART_MAIN);
-    lv_obj_set_size(rect, 50, 50);
-    lv_obj_align(rect, LV_ALIGN_TOP_MID, 0, lv_obj_get_y2(hsv_table) + 10);
-    lv_obj_set_style_bg_color(rect, current_theme, LV_PART_MAIN);
-
-    // Create a text box that shows some info
-    lv_obj_t *label = lv_label_create(c);
-    lv_label_set_text_static(label, "Applies on\nReboot");
-    lv_obj_align(label, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_add_event_cb(hsv_table, base_color_change_submenu_callback, LV_EVENT_KEY, rect);
-}
-
-static void change_search_path_submenu(void *param)
-{
-    (void) param;
-    lv_obj_t *c = container_open();
-    lv_obj_t *l = lv_label_create(c);
-    lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
-    lv_obj_set_size(l, lv_obj_get_width(c), LV_SIZE_CONTENT);
-    lv_label_set_text_fmt(l, "Not supported yet. To change folder search paths, edit \"%s\"."
-                            " Then rebuild database", DASH_SEARCH_PATH_CONFIG);
-}
-
-void dash_settings_open()
-{
-    static menu_items_t items[] =
-        {
-            {"", fahrenheit_change_callback, NULL, NULL},
-            {"", autolaunch_dvd_change_callback, NULL, NULL},
-            {"Show Debug Information", debug_info_change_callback, NULL, NULL},
-            {"Change How Pages are Sorted", change_page_sort_submenu, NULL, NULL},
-            {"Change Number of Items per Row", change_items_per_row, NULL, NULL},
-            {"Change Max Recent Items Shown", change_max_recent_submenu, NULL, NULL},
-            {"Change Default Start Up Page", change_startup_page_submenu, NULL, NULL},
-            {"Change Base Theme Color", change_base_color_submenu, NULL, NULL},
-            {"Change Folder Search Paths", change_search_path_submenu, NULL, NULL},
-        };
-
-    items[0].str = (dash_settings.use_fahrenheit) ? f_on : f_off;
-    items[1].str = (dash_settings.auto_launch_dvd) ? d_on : d_off;
-    items[2].str = (dash_settings.show_debug_info) ? i_on : i_off;
-    lv_obj_t *menu = menu_open_static(items, DASH_ARRAY_SIZE(items));
-    for (unsigned int i = 0; i < DASH_ARRAY_SIZE(items); i++)
-    {
-        items[i].callback_param = menu;
-    }
 }
 
 void dash_settings_read()
@@ -396,18 +70,394 @@ void dash_settings_read()
 
 void dash_settings_apply(bool confirm_box)
 {
-    // Delete old settings
     db_command_with_callback(SQL_SETTINGS_DELETE_ENTRIES, NULL, NULL);
-
-    // Apply new settings
     db_insert_blob(SQL_SETTINGS_INSERT, &dash_settings, sizeof(dash_settings));
 
     if (confirm_box)
     {
         lv_obj_t *obj = container_open();
         lv_obj_t *label = lv_label_create(obj);
-        lv_label_set_text(label, "Setting successfully applied\nReboot to apply changes");
+        lv_label_set_text(label, "Setting applied\nReboot to apply some changes");
         lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
         lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     }
+}
+
+/* ============================================================
+ *  Two-pane settings panel
+ * ============================================================ */
+static lv_obj_t *settings_overlay;
+static lv_obj_t *panel_body;
+static int active_section = 0;
+static lv_obj_t *nav_items[6];
+
+typedef enum {
+    SECT_DISPLAY = 0,
+    SECT_NETWORK,
+    SECT_AUDIO,
+    SECT_SYSTEM,
+    SECT_EEPROM,
+    SECT_ABOUT,
+    SECT_COUNT
+} settings_section_t;
+
+static const char *section_names[] = {"Display", "Network", "Audio", "System", "EEPROM", "About"};
+static const char *section_icons[] = {LV_SYMBOL_IMAGE, LV_SYMBOL_WIFI, LV_SYMBOL_VOLUME_MAX,
+                                       LV_SYMBOL_SETTINGS, LV_SYMBOL_SD_CARD, LV_SYMBOL_EYE_OPEN};
+
+/* ── Toggle widget ── */
+static lv_obj_t *create_toggle(lv_obj_t *parent, bool *value)
+{
+    lv_obj_t *track = lv_obj_create(parent);
+    lv_obj_set_size(track, 42, 24);
+    lv_obj_clear_flag(track, LV_OBJ_FLAG_SCROLLABLE);
+
+    if (*value)
+        lv_obj_add_style(track, &toggle_on_style, LV_PART_MAIN);
+    else
+        lv_obj_add_style(track, &toggle_off_style, LV_PART_MAIN);
+
+    lv_obj_t *thumb = lv_obj_create(track);
+    lv_obj_set_size(thumb, 18, 18);
+    lv_obj_add_style(thumb, &toggle_thumb_style, LV_PART_MAIN);
+    lv_obj_clear_flag(thumb, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_translate_x(thumb, *value ? 18 : 0, LV_PART_MAIN);
+
+    track->user_data = value;
+    return track;
+}
+
+/* ── Setting row ── */
+static lv_obj_t *create_setting_row(lv_obj_t *parent, const char *label_text,
+                                     const char *desc_text, bool first)
+{
+    lv_obj_t *row = lv_obj_create(parent);
+    lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_add_style(row, &setting_row_style, LV_PART_MAIN);
+    if (first)
+    {
+        lv_obj_set_style_border_width(row, 0, LV_PART_MAIN);
+    }
+    lv_obj_set_layout(row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Left: label + description */
+    lv_obj_t *left = lv_obj_create(row);
+    lv_obj_set_size(left, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(left, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(left, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(left, 0, LV_PART_MAIN);
+    lv_obj_set_layout(left, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(left, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(left, 2, LV_PART_MAIN);
+    lv_obj_set_flex_grow(left, 1);
+    lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *lbl = lv_label_create(left);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
+    lv_label_set_text(lbl, label_text);
+
+    if (desc_text)
+    {
+        lv_obj_t *desc = lv_label_create(left);
+        lv_obj_set_style_text_font(desc, &lv_font_montserrat_12, LV_PART_MAIN);
+        lv_obj_set_style_text_color(desc, EF_FG_MUTED, LV_PART_MAIN);
+        lv_obj_set_width(desc, 360);
+        lv_label_set_text(desc, desc_text);
+        lv_label_set_long_mode(desc, LV_LABEL_LONG_WRAP);
+    }
+
+    return row;
+}
+
+/* ── Readout value ── */
+static void create_readout(lv_obj_t *parent, const char *label_text, const char *value_text, bool first)
+{
+    lv_obj_t *row = create_setting_row(parent, label_text, NULL, first);
+
+    lv_obj_t *val = lv_label_create(row);
+    lv_obj_set_style_text_font(val, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(val, EF_FG, LV_PART_MAIN);
+    lv_label_set_text(val, value_text);
+}
+
+/* ── Section body builders ── */
+static void build_display_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_label_set_text(title, "Display");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "How LithiumX renders to your TV.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    /* Animated background */
+    lv_obj_t *r1 = create_setting_row(body, "Animated background", "GPU-rendered ambient gradient under the rail.", true);
+    create_toggle(r1, &dash_settings.animated_background);
+
+    lv_obj_t *r2 = create_setting_row(body, "Backdrop blur from selection", "Use selected game's boxart as a blurred backdrop.", false);
+    create_toggle(r2, &dash_settings.backdrop_blur);
+
+    lv_obj_t *r3 = create_setting_row(body, "Tile parallax", "Subtle depth on the focused tile.", false);
+    create_toggle(r3, &dash_settings.tile_parallax);
+
+    lv_obj_t *r4 = create_setting_row(body, "Film grain", "Overlay noise for texture.", false);
+    create_toggle(r4, &dash_settings.film_grain);
+}
+
+static void build_network_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_label_set_text(title, "Network");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "FTP server and IP configuration.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    lv_obj_t *r1 = create_setting_row(body, "FTP Server", "Port 21 " LV_SYMBOL_DUMMY " user: xbox " LV_SYMBOL_DUMMY " pass: xbox", true);
+    create_toggle(r1, &dash_settings.ftp_enabled);
+
+    create_readout(body, "IP Address", "192.168.1.x", false);
+    create_readout(body, "Link Speed", "100 Mbps", false);
+}
+
+static void build_audio_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_label_set_text(title, "Audio");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "UI sounds.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    lv_obj_t *r1 = create_setting_row(body, "UI sound effects", NULL, true);
+    create_toggle(r1, &dash_settings.ui_sounds);
+}
+
+static void build_system_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_label_set_text(title, "System");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "Dashboard behavior.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    lv_obj_t *r1 = create_setting_row(body, "Show FPS overlay", "Developer readout in status bar.", true);
+    create_toggle(r1, &dash_settings.show_fps_overlay);
+
+    lv_obj_t *r2 = create_setting_row(body, "Controller hints", "Bottom bar A/B/X/Y prompts.", false);
+    create_toggle(r2, &dash_settings.show_controller_hints);
+
+    lv_obj_t *r3 = create_setting_row(body, "Autolaunch DVD", NULL, false);
+    create_toggle(r3, &dash_settings.auto_launch_dvd);
+
+    lv_obj_t *r4 = create_setting_row(body, "Fahrenheit display", NULL, false);
+    create_toggle(r4, &dash_settings.use_fahrenheit);
+}
+
+static void build_eeprom_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_label_set_text(title, "EEPROM");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "Console hardware identity.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    create_readout(body, "Serial", "LX-0000000-0000", true);
+    create_readout(body, "Region", "NTSC-U", false);
+    create_readout(body, "Video Standard", "NTSC-M", false);
+}
+
+static void build_about_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_label_set_text(title, "About LithiumX");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "A minimal, GPU-accelerated dashboard.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    create_readout(body, "Version", "2.4.0-modern", true);
+    create_readout(body, "Build", "apr-2026 " LV_SYMBOL_DUMMY " nxdk", false);
+    create_readout(body, "License", "MIT", false);
+}
+
+typedef void (*section_builder_t)(lv_obj_t *body);
+static const section_builder_t section_builders[] = {
+    build_display_section,
+    build_network_section,
+    build_audio_section,
+    build_system_section,
+    build_eeprom_section,
+    build_about_section,
+};
+
+static void rebuild_body(void)
+{
+    if (!panel_body) return;
+    lv_obj_clean(panel_body);
+    if (active_section >= 0 && active_section < SECT_COUNT)
+    {
+        section_builders[active_section](panel_body);
+    }
+}
+
+static void update_nav_highlight(void)
+{
+    for (int i = 0; i < SECT_COUNT; i++)
+    {
+        lv_obj_remove_style(nav_items[i], &panel_nav_item_active_style, LV_PART_MAIN);
+        lv_obj_add_style(nav_items[i], &panel_nav_item_style, LV_PART_MAIN);
+    }
+    if (active_section >= 0 && active_section < SECT_COUNT)
+    {
+        lv_obj_remove_style(nav_items[active_section], &panel_nav_item_style, LV_PART_MAIN);
+        lv_obj_add_style(nav_items[active_section], &panel_nav_item_active_style, LV_PART_MAIN);
+    }
+}
+
+/* ── Key handler for the settings panel ── */
+static void settings_key_handler(lv_event_t *event)
+{
+    lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
+
+    if (key == LV_KEY_ESC)
+    {
+        /* Save settings and close */
+        dash_settings_apply(false);
+        dash_statusbar_refresh();
+
+        if (settings_overlay)
+        {
+            lv_obj_del(settings_overlay);
+            settings_overlay = NULL;
+            panel_body = NULL;
+        }
+        dash_focus_pop_depth();
+        return;
+    }
+
+    if (key == LV_KEY_UP)
+    {
+        active_section = (active_section - 1 + SECT_COUNT) % SECT_COUNT;
+        update_nav_highlight();
+        rebuild_body();
+    }
+    else if (key == LV_KEY_DOWN)
+    {
+        active_section = (active_section + 1) % SECT_COUNT;
+        update_nav_highlight();
+        rebuild_body();
+    }
+}
+
+/* ── Open settings panel ── */
+void dash_settings_open(void)
+{
+    active_section = SECT_DISPLAY;
+
+    lv_coord_t scr_w = lv_obj_get_width(lv_scr_act());
+    lv_coord_t scr_h = lv_obj_get_height(lv_scr_act());
+
+    /* Fullscreen overlay */
+    settings_overlay = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(settings_overlay, scr_w, scr_h);
+    lv_obj_set_style_bg_opa(settings_overlay, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(settings_overlay, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(settings_overlay, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(settings_overlay, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(settings_overlay, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Scrim */
+    lv_obj_t *scrim = lv_obj_create(settings_overlay);
+    lv_obj_set_size(scrim, scr_w, scr_h);
+    lv_obj_add_style(scrim, &overlay_scrim_style, LV_PART_MAIN);
+    lv_obj_clear_flag(scrim, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    /* Panel: inset 44px top, 64px bottom, 40px sides */
+    lv_obj_t *panel = lv_obj_create(settings_overlay);
+    lv_obj_set_pos(panel, 40, 44);
+    lv_obj_set_size(panel, scr_w - 80, scr_h - 44 - 64);
+    lv_obj_add_style(panel, &panel_style, LV_PART_MAIN);
+    lv_obj_set_layout(panel, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(panel, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_all(panel, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Left nav (240px) */
+    lv_obj_t *nav = lv_obj_create(panel);
+    lv_obj_set_size(nav, 240, lv_pct(100));
+    lv_obj_add_style(nav, &panel_nav_style, LV_PART_MAIN);
+    lv_obj_set_style_border_width(nav, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_side(nav, LV_BORDER_SIDE_RIGHT, LV_PART_MAIN);
+    lv_obj_set_style_border_color(nav, EF_FG, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(nav, 20, LV_PART_MAIN);
+    lv_obj_set_layout(nav, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(nav, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(nav, 2, LV_PART_MAIN);
+    lv_obj_clear_flag(nav, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Nav title */
+    lv_obj_t *nav_title = lv_label_create(nav);
+    lv_obj_add_style(nav_title, &eyebrow_style, LV_PART_MAIN);
+    lv_label_set_text(nav_title, "SETTINGS");
+    lv_obj_set_style_pad_bottom(nav_title, 12, LV_PART_MAIN);
+
+    /* Nav items */
+    for (int i = 0; i < SECT_COUNT; i++)
+    {
+        lv_obj_t *item = lv_obj_create(nav);
+        lv_obj_set_size(item, lv_pct(100), LV_SIZE_CONTENT);
+        lv_obj_add_style(item, &panel_nav_item_style, LV_PART_MAIN);
+        lv_obj_set_layout(item, LV_LAYOUT_FLEX);
+        lv_obj_set_flex_flow(item, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(item, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
+
+        lv_obj_t *icon = lv_label_create(item);
+        lv_label_set_text(icon, section_icons[i]);
+        lv_obj_set_style_text_font(icon, &lv_font_montserrat_14, LV_PART_MAIN);
+
+        lv_obj_t *lbl = lv_label_create(item);
+        lv_label_set_text(lbl, section_names[i]);
+
+        nav_items[i] = item;
+    }
+    update_nav_highlight();
+
+    /* Right body (scrollable) */
+    panel_body = lv_obj_create(panel);
+    lv_obj_set_size(panel_body, LV_SIZE_CONTENT, lv_pct(100));
+    lv_obj_set_flex_grow(panel_body, 1);
+    lv_obj_set_style_bg_opa(panel_body, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(panel_body, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(panel_body, 30, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(panel_body, 30, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(panel_body, 26, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(panel_body, 26, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(panel_body, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(panel_body, 0, LV_PART_MAIN);
+    lv_obj_set_layout(panel_body, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(panel_body, LV_FLEX_FLOW_COLUMN);
+
+    rebuild_body();
+
+    /* Entry animation */
+    dash_anim_overlay_in(panel, 300);
+
+    /* Focus management */
+    lv_group_add_obj(lv_group_get_default(), panel);
+    lv_obj_add_event_cb(panel, settings_key_handler, LV_EVENT_KEY, NULL);
+    dash_focus_change_depth(panel);
 }

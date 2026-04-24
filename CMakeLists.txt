@@ -66,6 +66,12 @@ set(SOURCES
     src/dash_browser.c
     src/dash_debug.c
     src/dash_launcher.c
+    src/dash_anim.c
+    src/dash_statusbar.c
+    src/dash_controls_bar.c
+    src/dash_sysinfo.c
+    src/dash_remote.c
+    src/dash_backdrop.c
     src/lvgl_widgets/confirmbox.c
     src/lvgl_widgets/menu.c
     src/lvgl_widgets/generic_container.c

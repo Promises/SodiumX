@@ -72,3 +72,19 @@ void lv_port_disp_deinit()
     SDL_DestroyWindow(window);
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
+
+/* Save a screenshot as BMP to build/screenshots/ */
+static int screenshot_counter = 0;
+void lv_screenshot_save(void)
+{
+    char path[256];
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, DISPLAY_WIDTH, DISPLAY_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!surface) return;
+
+    SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
+
+    snprintf(path, sizeof(path), "build/screenshots/screenshot_%03d.bmp", screenshot_counter++);
+    SDL_SaveBMP(surface, path);
+    SDL_FreeSurface(surface);
+    printf("[SCREENSHOT] Saved: %s\n", path);
+}

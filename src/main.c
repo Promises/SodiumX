@@ -11,15 +11,21 @@ static SDL_mutex *lvgl_mutex;
 
 keyboard_map_t lvgl_keyboard_map[] =
 {
-    {.sdl_map = SDLK_ESCAPE, .lvgl_map = DASH_SETTINGS_PAGE},
-    {.sdl_map = SDLK_BACKSPACE, .lvgl_map = LV_KEY_ESC},
-    {.sdl_map = SDLK_RETURN, .lvgl_map = LV_KEY_ENTER},
-    {.sdl_map = SDLK_PAGEDOWN, .lvgl_map = DASH_PREV_PAGE},
-    {.sdl_map = SDLK_PAGEUP, .lvgl_map = DASH_NEXT_PAGE},
+    {.sdl_map = SDLK_ESCAPE, .lvgl_map = DASH_SETTINGS_PAGE},  /* Esc = START (menu) */
+    {.sdl_map = SDLK_BACKSPACE, .lvgl_map = LV_KEY_ESC},       /* Backspace = B (back) */
+    {.sdl_map = SDLK_RETURN, .lvgl_map = LV_KEY_ENTER},        /* Enter = A (launch/select) */
+    {.sdl_map = SDLK_PAGEDOWN, .lvgl_map = DASH_PREV_PAGE},    /* PageDown = LB (prev tab) */
+    {.sdl_map = SDLK_PAGEUP, .lvgl_map = DASH_NEXT_PAGE},      /* PageUp = RB (next tab) */
     {.sdl_map = SDLK_UP, .lvgl_map = LV_KEY_UP},
     {.sdl_map = SDLK_DOWN, .lvgl_map = LV_KEY_DOWN},
     {.sdl_map = SDLK_LEFT, .lvgl_map = LV_KEY_LEFT},
     {.sdl_map = SDLK_RIGHT, .lvgl_map = LV_KEY_RIGHT},
+    {.sdl_map = SDLK_y, .lvgl_map = DASH_INFO_PAGE},           /* Y = synopsis/details */
+    {.sdl_map = SDLK_s, .lvgl_map = DASH_SETTINGS_PAGE},       /* S = START (menu) */
+    {.sdl_map = SDLK_b, .lvgl_map = LV_KEY_ESC},               /* B = back */
+    {.sdl_map = SDLK_q, .lvgl_map = 'L'},                      /* Q = LT (fast scroll left) */
+    {.sdl_map = SDLK_e, .lvgl_map = 'R'},                      /* E = RT (fast scroll right) */
+    {.sdl_map = SDLK_TAB, .lvgl_map = DASH_NEXT_PAGE},         /* Tab = next tab */
     {.sdl_map = 0, .lvgl_map = 0}
 };
 
@@ -131,6 +137,14 @@ void dash_printf(dash_debug_level_t level, const char *format, ...)
     va_start(argList, format);
     npf_vpprintf(npf_putchar, NULL, format, argList);
     va_end(argList);
+
+    /* Forward to remote debug clients */
+    va_list argList2;
+    va_start(argList2, format);
+    char remote_buf[512];
+    vsnprintf(remote_buf, sizeof(remote_buf), format, argList2);
+    va_end(argList2);
+    dash_remote_log("%s", remote_buf);
 }
 
 int main(int argc, char* argv[]) {
@@ -158,6 +172,10 @@ int main(int argc, char* argv[]) {
 
     dash_printf(LEVEL_TRACE, "Creating dash\n");
     dash_init();
+
+    dash_printf(LEVEL_TRACE, "Starting remote debug server\n");
+    dash_remote_init();
+
     dash_printf(LEVEL_TRACE, "Enter dash busy loop\n");
 
     #ifdef NXDK
@@ -188,6 +206,7 @@ int main(int argc, char* argv[]) {
         #endif
     }
     dash_printf(LEVEL_TRACE, "Quitting dash with quit event %d\n", lv_get_quit());
+    dash_remote_deinit();
     lv_port_disp_deinit();
     lv_port_indev_deinit();
     platform_quit(lv_get_quit());
