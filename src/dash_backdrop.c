@@ -13,6 +13,187 @@
 #define BACKDROP_BPP 4
 #endif
 
+/* ── Gaussian blur (box blur x3) on decoded JPEG buffer ── */
+#define BLUR_RADIUS  8
+#define BLUR_PASSES  3
+
+static void box_blur_rgb565(uint16_t *src, uint16_t *dst, int w, int h, int radius)
+{
+    /* Horizontal pass */
+    for (int y = 0; y < h; y++)
+    {
+        int r_acc = 0, g_acc = 0, b_acc = 0;
+        int count = 0;
+        for (int x = 0; x <= radius && x < w; x++)
+        {
+            uint16_t c = src[y * w + x];
+            r_acc += (c >> 11) & 0x1F;
+            g_acc += (c >> 5)  & 0x3F;
+            b_acc += c & 0x1F;
+            count++;
+        }
+        for (int x = 0; x < w; x++)
+        {
+            dst[y * w + x] = (uint16_t)(((r_acc / count) << 11) |
+                                         ((g_acc / count) << 5)  |
+                                          (b_acc / count));
+            int right = x + radius + 1;
+            if (right < w)
+            {
+                uint16_t c = src[y * w + right];
+                r_acc += (c >> 11) & 0x1F;
+                g_acc += (c >> 5)  & 0x3F;
+                b_acc += c & 0x1F;
+                count++;
+            }
+            int left = x - radius;
+            if (left >= 0)
+            {
+                uint16_t c = src[y * w + left];
+                r_acc -= (c >> 11) & 0x1F;
+                g_acc -= (c >> 5)  & 0x3F;
+                b_acc -= c & 0x1F;
+                count--;
+            }
+        }
+    }
+    /* Vertical pass */
+    for (int x = 0; x < w; x++)
+    {
+        int r_acc = 0, g_acc = 0, b_acc = 0;
+        int count = 0;
+        for (int y = 0; y <= radius && y < h; y++)
+        {
+            uint16_t c = dst[y * w + x];
+            r_acc += (c >> 11) & 0x1F;
+            g_acc += (c >> 5)  & 0x3F;
+            b_acc += c & 0x1F;
+            count++;
+        }
+        for (int y = 0; y < h; y++)
+        {
+            src[y * w + x] = (uint16_t)(((r_acc / count) << 11) |
+                                         ((g_acc / count) << 5)  |
+                                          (b_acc / count));
+            int bot = y + radius + 1;
+            if (bot < h)
+            {
+                uint16_t c = dst[bot * w + x];
+                r_acc += (c >> 11) & 0x1F;
+                g_acc += (c >> 5)  & 0x3F;
+                b_acc += c & 0x1F;
+                count++;
+            }
+            int top = y - radius;
+            if (top >= 0)
+            {
+                uint16_t c = dst[top * w + x];
+                r_acc -= (c >> 11) & 0x1F;
+                g_acc -= (c >> 5)  & 0x3F;
+                b_acc -= c & 0x1F;
+                count--;
+            }
+        }
+    }
+}
+
+static void box_blur_bgra32(uint32_t *src, uint32_t *dst, int w, int h, int radius)
+{
+    /* Horizontal pass */
+    for (int y = 0; y < h; y++)
+    {
+        int r_acc = 0, g_acc = 0, b_acc = 0;
+        int count = 0;
+        for (int x = 0; x <= radius && x < w; x++)
+        {
+            uint32_t c = src[y * w + x];
+            b_acc += (c >> 16) & 0xFF;
+            g_acc += (c >> 8)  & 0xFF;
+            r_acc += c & 0xFF;
+            count++;
+        }
+        for (int x = 0; x < w; x++)
+        {
+            dst[y * w + x] = (0xFF000000u) |
+                              ((b_acc / count) << 16) |
+                              ((g_acc / count) << 8)  |
+                               (r_acc / count);
+            int right = x + radius + 1;
+            if (right < w)
+            {
+                uint32_t c = src[y * w + right];
+                b_acc += (c >> 16) & 0xFF;
+                g_acc += (c >> 8)  & 0xFF;
+                r_acc += c & 0xFF;
+                count++;
+            }
+            int left = x - radius;
+            if (left >= 0)
+            {
+                uint32_t c = src[y * w + left];
+                b_acc -= (c >> 16) & 0xFF;
+                g_acc -= (c >> 8)  & 0xFF;
+                r_acc -= c & 0xFF;
+                count--;
+            }
+        }
+    }
+    /* Vertical pass */
+    for (int x = 0; x < w; x++)
+    {
+        int r_acc = 0, g_acc = 0, b_acc = 0;
+        int count = 0;
+        for (int y = 0; y <= radius && y < h; y++)
+        {
+            uint32_t c = dst[y * w + x];
+            b_acc += (c >> 16) & 0xFF;
+            g_acc += (c >> 8)  & 0xFF;
+            r_acc += c & 0xFF;
+            count++;
+        }
+        for (int y = 0; y < h; y++)
+        {
+            src[y * w + x] = (0xFF000000u) |
+                              ((b_acc / count) << 16) |
+                              ((g_acc / count) << 8)  |
+                               (r_acc / count);
+            int bot = y + radius + 1;
+            if (bot < h)
+            {
+                uint32_t c = dst[bot * w + x];
+                b_acc += (c >> 16) & 0xFF;
+                g_acc += (c >> 8)  & 0xFF;
+                r_acc += c & 0xFF;
+                count++;
+            }
+            int top = y - radius;
+            if (top >= 0)
+            {
+                uint32_t c = dst[top * w + x];
+                b_acc -= (c >> 16) & 0xFF;
+                g_acc -= (c >> 8)  & 0xFF;
+                r_acc -= c & 0xFF;
+                count--;
+            }
+        }
+    }
+}
+
+static void backdrop_blur(void *pixels, int w, int h)
+{
+    void *tmp = malloc(w * h * BACKDROP_BPP);
+    if (!tmp) return;
+
+    for (int i = 0; i < BLUR_PASSES; i++)
+    {
+        if (BACKDROP_BPP == 2)
+            box_blur_rgb565((uint16_t *)pixels, (uint16_t *)tmp, w, h, BLUR_RADIUS);
+        else
+            box_blur_bgra32((uint32_t *)pixels, (uint32_t *)tmp, w, h, BLUR_RADIUS);
+    }
+    free(tmp);
+}
+
 /* Two image slots for cross-fade */
 typedef struct {
     lv_obj_t *canvas;
@@ -70,6 +251,11 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
     slot->w = w;
     slot->h = h;
 
+    /* Gaussian blur approximation (box blur x3) on the small decoded image.
+     * Runs once per backdrop change — zero per-frame cost. At 256px source
+     * scaled 5x to screen, radius 8 here ≈ Gaussian sigma ~70 on screen. */
+    backdrop_blur(img, w, h);
+
     lv_img_cf_t cf = LV_IMG_CF_TRUE_COLOR;
     if (BACKDROP_BPP * 8 != LV_COLOR_DEPTH)
     {
@@ -78,7 +264,7 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
 
     lv_canvas_set_buffer(slot->canvas, img, w, h, cf);
 
-    /* Zoom to cover the screen — GPU does the scaling (bilinear = natural blur) */
+    /* Zoom to cover the screen — GPU does the scaling */
     lv_coord_t scr_w = lv_obj_get_width(lv_scr_act());
     lv_coord_t scr_h = lv_obj_get_height(lv_scr_act());
     uint16_t zoom_w = scr_w * 256 / w;
@@ -106,7 +292,7 @@ void dash_backdrop_create(lv_obj_t *parent)
     lv_obj_set_size(backdrop_color, scr_w, scr_h);
     lv_obj_set_pos(backdrop_color, 0, 0);
     lv_obj_set_style_bg_color(backdrop_color, dash_accent_color, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(backdrop_color, 40, LV_PART_MAIN); /* subtle ~15% */
+    lv_obj_set_style_bg_opa(backdrop_color, 20, LV_PART_MAIN); /* subtle ~8% */
     lv_obj_set_style_bg_grad_color(backdrop_color, EF_PURPLE, LV_PART_MAIN);
     lv_obj_set_style_bg_grad_dir(backdrop_color, LV_GRAD_DIR_VER, LV_PART_MAIN);
     lv_obj_set_style_border_width(backdrop_color, 0, LV_PART_MAIN);
@@ -117,6 +303,8 @@ void dash_backdrop_create(lv_obj_t *parent)
     slot_a.canvas = lv_canvas_create(parent);
     lv_obj_set_pos(slot_a.canvas, 0, 0);
     lv_obj_set_style_opa(slot_a.canvas, 0, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(slot_a.canvas, 0, LV_PART_MAIN);
+    lv_img_set_antialias(slot_a.canvas, true);
     lv_obj_clear_flag(slot_a.canvas, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_img_set_size_mode(slot_a.canvas, LV_IMG_SIZE_MODE_REAL);
     slot_a.mem = NULL;
@@ -126,6 +314,8 @@ void dash_backdrop_create(lv_obj_t *parent)
     slot_b.canvas = lv_canvas_create(parent);
     lv_obj_set_pos(slot_b.canvas, 0, 0);
     lv_obj_set_style_opa(slot_b.canvas, 0, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(slot_b.canvas, 0, LV_PART_MAIN);
+    lv_img_set_antialias(slot_b.canvas, true);
     lv_obj_clear_flag(slot_b.canvas, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_img_set_size_mode(slot_b.canvas, LV_IMG_SIZE_MODE_REAL);
     slot_b.mem = NULL;

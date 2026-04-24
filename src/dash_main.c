@@ -378,6 +378,7 @@ void dash_create()
 
     lv_coord_t scr_w = lv_obj_get_width(lv_scr_act());
     lv_coord_t scr_h = lv_obj_get_height(lv_scr_act());
+    lv_obj_set_scrollbar_mode(lv_scr_act(), LV_SCROLLBAR_MODE_OFF);
 
     /* Layer 0: Background fill (EF_BG_DIM) */
     lv_obj_t *bg = lv_obj_create(lv_scr_act());

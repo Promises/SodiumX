@@ -2,6 +2,8 @@
 
 #include <hal/video.h>
 #include <hal/debug.h>
+#include <string.h>
+#include <SDL.h>
 #include <lvgl.h>
 #include <src/misc/lv_lru.h>
 #include "libs/xgu/xgu.h"
@@ -135,4 +137,31 @@ void lv_port_disp_deinit()
     while (pb_finished());
     pb_show_debug_screen();
     debugClearScreen();
+}
+
+/* Save a screenshot as BMP to D:\screenshots\ */
+static int screenshot_counter = 0;
+void lv_screenshot_save(void)
+{
+    int w = (int)pb_back_buffer_width();
+    int h = (int)pb_back_buffer_height();
+    int pitch = (int)pb_back_buffer_pitch();
+    DWORD *fb = pb_back_buffer();
+
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!surface) return;
+
+    /* Copy framebuffer row by row (pitch may differ) */
+    for (int y = 0; y < h; y++)
+    {
+        memcpy((uint8_t *)surface->pixels + y * surface->pitch,
+               (uint8_t *)fb + y * pitch,
+               w * 4);
+    }
+
+    char path[256];
+    snprintf(path, sizeof(path), "D:\\screenshots\\screenshot_%03d.bmp", screenshot_counter++);
+    SDL_SaveBMP(surface, path);
+    SDL_FreeSurface(surface);
+    debugPrint("[SCREENSHOT] Saved: %s\n", path);
 }

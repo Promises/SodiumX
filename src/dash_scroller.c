@@ -219,9 +219,11 @@ static void tile_apply_state(lv_obj_t *tile, int index, int sel, bool animate)
         }
     }
 
-    /* Focus ring */
+    /* Focus ring — set bg color to border color so the stencil inset
+     * reveals the border as the tile background at the edges. */
     if (delta == 0)
     {
+        lv_obj_set_style_bg_color(tile, dash_accent_color, LV_PART_MAIN);
         lv_obj_set_style_border_width(tile, 3, LV_PART_MAIN);
         lv_obj_set_style_border_color(tile, dash_accent_color, LV_PART_MAIN);
         lv_obj_set_style_border_opa(tile, LV_OPA_COVER, LV_PART_MAIN);
@@ -231,6 +233,7 @@ static void tile_apply_state(lv_obj_t *tile, int index, int sel, bool animate)
     }
     else
     {
+        lv_obj_set_style_bg_color(tile, EF_BG2, LV_PART_MAIN);
         lv_obj_set_style_border_width(tile, 1, LV_PART_MAIN);
         lv_obj_set_style_border_color(tile, EF_FG, LV_PART_MAIN);
         lv_obj_set_style_border_opa(tile, 51, LV_PART_MAIN);
@@ -743,29 +746,47 @@ static void item_scan_add(lv_obj_t *scroller, item_strings_callback_t *item_cb)
         lv_obj_set_style_opa(tile, OPA_DEFAULT, LV_PART_MAIN);
         lv_obj_clear_flag(tile, LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SCROLL_CHAIN);
 
-        /* Bottom gradient strip for title legibility — only covers the lower 40% */
-        lv_obj_t *grad = lv_obj_create(tile);
-        lv_obj_set_size(grad, DASH_TILE_W, DASH_TILE_H * 2 / 5); /* 40% of tile height */
-        lv_obj_align(grad, LV_ALIGN_BOTTOM_MID, 0, 0);
-        lv_obj_set_style_bg_color(grad, lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(grad, 180, LV_PART_MAIN); /* ~70% at bottom */
-        lv_obj_set_style_bg_grad_color(grad, lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_bg_grad_dir(grad, LV_GRAD_DIR_VER, LV_PART_MAIN);
-        lv_obj_set_style_bg_main_stop(grad, 0, LV_PART_MAIN);   /* transparent at top of gradient */
-        lv_obj_set_style_bg_grad_stop(grad, 255, LV_PART_MAIN); /* full opacity at bottom */
-        lv_obj_set_style_border_width(grad, 0, LV_PART_MAIN);
-        lv_obj_set_style_radius(grad, 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(grad, 0, LV_PART_MAIN);
-        lv_obj_clear_flag(grad, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+        /* Check if box art exists — if so, skip the card overlay.
+         * We check the file directly since jpg_info isn't set until the second pass. */
+        {
+            char thumb_check[DASH_MAX_PATH];
+            strncpy(thumb_check, item->launch_path, DASH_MAX_PATH - 1);
+            thumb_check[DASH_MAX_PATH - 1] = '\0';
+            char *sep = strrchr(thumb_check, DASH_PATH_SEPARATOR);
+            bool has_art = false;
+            if (sep)
+            {
+                strcpy(sep + 1, DASH_GAME_THUMBNAIL);
+                DWORD attr = GetFileAttributes(thumb_check);
+                has_art = (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
+            }
+            if (!has_art)
+            {
+            /* Bottom gradient strip for title legibility */
+            lv_obj_t *grad = lv_obj_create(tile);
+            lv_obj_set_size(grad, DASH_TILE_W, DASH_TILE_H * 2 / 5);
+            lv_obj_align(grad, LV_ALIGN_BOTTOM_MID, 0, 0);
+            lv_obj_set_style_bg_color(grad, lv_color_black(), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(grad, 180, LV_PART_MAIN);
+            lv_obj_set_style_bg_grad_color(grad, lv_color_black(), LV_PART_MAIN);
+            lv_obj_set_style_bg_grad_dir(grad, LV_GRAD_DIR_VER, LV_PART_MAIN);
+            lv_obj_set_style_bg_main_stop(grad, 0, LV_PART_MAIN);
+            lv_obj_set_style_bg_grad_stop(grad, 255, LV_PART_MAIN);
+            lv_obj_set_style_border_width(grad, 0, LV_PART_MAIN);
+            lv_obj_set_style_radius(grad, 0, LV_PART_MAIN);
+            lv_obj_set_style_pad_all(grad, 0, LV_PART_MAIN);
+            lv_obj_clear_flag(grad, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
-        /* Title label at bottom */
-        lv_obj_t *title_lbl = lv_label_create(tile);
-        lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_16, LV_PART_MAIN);
-        lv_obj_set_style_text_color(title_lbl, lv_color_white(), LV_PART_MAIN);
-        lv_obj_set_width(title_lbl, DASH_TILE_W - 28);
-        lv_label_set_text(title_lbl, item->title);
-        lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
-        lv_obj_align(title_lbl, LV_ALIGN_BOTTOM_LEFT, 14, -12);
+            /* Title label at bottom */
+            lv_obj_t *title_lbl = lv_label_create(tile);
+            lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+            lv_obj_set_style_text_color(title_lbl, lv_color_white(), LV_PART_MAIN);
+            lv_obj_set_width(title_lbl, DASH_TILE_W - 28);
+            lv_label_set_text(title_lbl, item->title);
+            lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
+            lv_obj_align(title_lbl, LV_ALIGN_BOTTOM_LEFT, 14, -12);
+            }
+        }
 
         /* Input callbacks */
         lv_group_add_obj(lv_group_get_default(), tile);
@@ -939,6 +960,28 @@ void dash_scroller_clear_page(const char *page_title)
                 lv_obj_del(child);
                 child = lv_obj_get_child(scroller, 1);
             }
+        }
+    }
+}
+
+void dash_scroller_rescan_page(const char *page_title)
+{
+    dash_printf(LEVEL_TRACE, "[RESCAN] Clearing and rescanning '%s'\n", page_title);
+
+    /* Clear existing tiles from the scroller */
+    dash_scroller_clear_page(page_title);
+
+    /* Delete DB entries for this page and rescan from disk */
+    db_rebuild_page(dash_search_paths, page_title);
+
+    /* Re-scan DB into the scroller by launching the scan thread */
+    for (int i = 0; i < DASH_MAX_PAGES; i++)
+    {
+        if (parsers[i] && strcmp(parsers[i]->page_title, page_title) == 0)
+        {
+            parsers[i]->db_scan_thread = SDL_CreateThread(
+                db_scan_thread_f, "rescan_thread", parsers[i]);
+            break;
         }
     }
 }

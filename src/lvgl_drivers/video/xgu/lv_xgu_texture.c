@@ -2,11 +2,30 @@
 
 #include "lv_xgu_draw.h"
 #include "src/draw/lv_draw.h"
+#include "src/draw/lv_draw_mask.h"
+#include "src/misc/lv_gc.h"
 #include "libs/xgu/xgu.h"
 #include "libs/xgu/xgux.h"
 #include "src/misc/lv_lru.h"
 
 extern uint32_t *p;
+
+/* Check if a radius mask is active and return its params.
+ * LVGL sets this when clip_corner=true on a parent object. */
+static lv_draw_mask_radius_param_t *xgu_get_active_radius_mask(void)
+{
+    for (int i = 0; i < _LV_MASK_MAX_NUM; i++)
+    {
+        _lv_draw_mask_saved_t *m = &LV_GC_ROOT(_lv_draw_mask_list[i]);
+        if (m->param == NULL) break;
+        _lv_draw_mask_common_dsc_t *common = (_lv_draw_mask_common_dsc_t *)m->param;
+        if (common->type == LV_DRAW_MASK_TYPE_RADIUS)
+        {
+            return (lv_draw_mask_radius_param_t *)m->param;
+        }
+    }
+    return NULL;
+}
 
 static const uint8_t _lv_bpp1_opa_table[2] = {0, 255};          /*Opacity mapping with bpp = 1 (Just for compatibility)*/
 
@@ -164,6 +183,7 @@ static void map_textured_rect(draw_cache_value_t *texture, const lv_area_t *tex_
     p = xgu_end(p);
 }
 
+
 void xgu_draw_letter(struct _lv_draw_ctx_t *draw_ctx, const lv_draw_label_dsc_t *dsc,
                      const lv_point_t *pos_p, uint32_t letter)
 {
@@ -232,7 +252,7 @@ void xgu_draw_letter(struct _lv_draw_ctx_t *draw_ctx, const lv_draw_label_dsc_t 
     }
 
     p = xgux_set_color4ub(p, dsc->color.ch.red, dsc->color.ch.green,
-                          dsc->color.ch.blue, dsc->opa);
+                          dsc->color.ch.blue, xgu_correct_opa(dsc->opa));
 
     bind_texture(xgu_ctx, texture, (uint32_t)bmp, XGU_TEXTURE_FILTER_LINEAR);
 
@@ -390,19 +410,105 @@ void xgu_draw_img_decoded(struct _lv_draw_ctx_t *draw_ctx, const lv_draw_img_dsc
         }
     }
 
-    if (dsc->recolor_opa > LV_OPA_TRANSP)
     {
-        p = xgux_set_color4ub(p, dsc->recolor.ch.red, dsc->recolor.ch.green,
-                                 dsc->recolor.ch.blue, dsc->recolor_opa);
+        uint8_t img_opa = (dsc->opa < LV_OPA_MAX) ? xgu_correct_opa(dsc->opa) : 255;
+        if (dsc->recolor_opa > LV_OPA_TRANSP)
+        {
+            uint8_t rc_opa = xgu_correct_opa(dsc->recolor_opa);
+            p = xgux_set_color4ub(p, dsc->recolor.ch.red, dsc->recolor.ch.green,
+                                     dsc->recolor.ch.blue, (uint8_t)((rc_opa * img_opa) >> 8));
+        }
+        else
+        {
+            p = xgux_set_color4ub(p, recolor.ch.red, recolor.ch.green, recolor.ch.blue, img_opa);
+        }
+    }
+
+    /* Check for radius mask (clip_corner) and set up stencil clipping */
+    lv_draw_mask_radius_param_t *radius_mask = xgu_get_active_radius_mask();
+    if (radius_mask && radius_mask->cfg.radius > 0)
+    {
+        pb_end(p);
+
+        /* Pass 1: write rounded rect shape to stencil buffer */
+        p = pb_begin();
+        p = xgu_set_stencil_test_enable(p, true);
+        p = xgu_set_stencil_mask(p, 0xFF);
+        p = xgu_set_stencil_func(p, XGU_FUNC_ALWAYS);
+        p = xgu_set_stencil_func_ref(p, 1);
+        p = xgu_set_stencil_op_fail(p, XGU_STENCIL_OP_KEEP);
+        p = xgu_set_stencil_op_zfail(p, XGU_STENCIL_OP_KEEP);
+        p = xgu_set_stencil_op_zpass(p, XGU_STENCIL_OP_REPLACE);
+        /* Disable color writes — only write stencil */
+        p = xgu_set_color_mask(p, 0);
+        pb_end(p);
+
+        /* Draw the rounded rect into stencil only */
+        p = pb_begin();
+        if (xgu_ctx->xgu_data->combiner_mode != 0)
+        {
+            #include "lvgl_drivers/video/xgu/notexture.inl"
+            xgu_ctx->xgu_data->combiner_mode = 0;
+        }
+        if (xgu_ctx->xgu_data->tex_enabled == 1)
+        {
+            p = xgu_set_texture_control0(p, 0, false, 0, 0);
+            xgu_ctx->xgu_data->tex_enabled = 0;
+        }
+        /* Inset the stencil rect by the border width so the border remains
+         * visible on top of the cover art (border draws at the tile edge). */
+        lv_area_t stencil_rect = radius_mask->cfg.rect;
+        lv_coord_t inset = 3; /* match focused border width */
+        stencil_rect.x1 += inset;
+        stencil_rect.y1 += inset;
+        stencil_rect.x2 -= inset;
+        stencil_rect.y2 -= inset;
+        lv_coord_t stencil_radius = radius_mask->cfg.radius > inset ? radius_mask->cfg.radius - inset : 0;
+        xgu_draw_rect_rounded(&stencil_rect, stencil_radius,
+                              255, 255, 255, 255);
+        pb_end(p);
+
+        /* Pass 2: draw image with stencil test — only where stencil == 1 */
+        p = pb_begin();
+        p = xgu_set_color_mask(p, (XGU_BLUE | XGU_GREEN | XGU_RED | XGU_ALPHA));
+        p = xgu_set_stencil_func(p, XGU_FUNC_EQUAL);
+        p = xgu_set_stencil_func_ref(p, 1);
+        p = xgu_set_stencil_func_mask(p, 0xFF);
+        p = xgu_set_stencil_op_fail(p, XGU_STENCIL_OP_KEEP);
+        p = xgu_set_stencil_op_zfail(p, XGU_STENCIL_OP_KEEP);
+        p = xgu_set_stencil_op_zpass(p, XGU_STENCIL_OP_KEEP);
+
+        /* Re-setup texture combiner */
+        #include "lvgl_drivers/video/xgu/texture.inl"
+        xgu_ctx->xgu_data->combiner_mode = 1;
+
+        bind_texture(xgu_ctx, texture, (uint32_t)key,
+                     (dsc->antialias) ? XGU_TEXTURE_FILTER_LINEAR : XGU_TEXTURE_FILTER_NEAREST);
+
+        map_textured_rect(texture, &src_area_transformed, &draw_area, (float)dsc->zoom);
+
+        /* Disable stencil test and clear stencil buffer in the clip region */
+        p = xgu_set_stencil_test_enable(p, false);
+        pb_end(p);
+
+        /* Clear the stencil for the area we used */
+        p = pb_begin();
+        p = xgu_set_stencil_test_enable(p, true);
+        p = xgu_set_stencil_func(p, XGU_FUNC_ALWAYS);
+        p = xgu_set_stencil_op_zpass(p, XGU_STENCIL_OP_ZERO);
+        p = xgu_set_color_mask(p, 0);
+        xgu_draw_rect_rounded(&radius_mask->cfg.rect, radius_mask->cfg.radius,
+                              0, 0, 0, 255);
+        p = xgu_set_color_mask(p, (XGU_BLUE | XGU_GREEN | XGU_RED | XGU_ALPHA));
+        p = xgu_set_stencil_test_enable(p, false);
+        pb_end(p);
     }
     else
     {
-        p = xgux_set_color4ub(p, recolor.ch.red, recolor.ch.green, recolor.ch.blue, 255);
+        bind_texture(xgu_ctx, texture, (uint32_t)key,
+                     (dsc->antialias) ? XGU_TEXTURE_FILTER_LINEAR : XGU_TEXTURE_FILTER_NEAREST);
+
+        map_textured_rect(texture, &src_area_transformed, &draw_area, (float)dsc->zoom);
+        pb_end(p);
     }
-
-    bind_texture(xgu_ctx, texture, (uint32_t)key,
-                 (dsc->antialias) ? XGU_TEXTURE_FILTER_LINEAR : XGU_TEXTURE_FILTER_NEAREST);
-
-    map_textured_rect(texture, &src_area_transformed, &draw_area, (float)dsc->zoom);
-    pb_end(p);
 }

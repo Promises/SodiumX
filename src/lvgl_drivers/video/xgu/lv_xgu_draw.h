@@ -44,6 +44,16 @@ typedef struct
 #define SKIP_IMAGE(dsc) ((dsc)->bg_img_src == NULL || (dsc)->bg_img_opa <= LV_OPA_MIN)
 #define SKIP_OUTLINE(dsc) ((dsc)->outline_opa <= LV_OPA_MIN || (dsc)->outline_width == 0)
 
+/* Compensate for nv2a linear-space alpha blending vs LVGL's gamma-space
+ * software blend. Without this, GPU-blended colors appear ~10-12 brighter
+ * per channel. Empirically calibrated +12.5% boost. */
+static inline uint8_t xgu_correct_opa(uint8_t opa)
+{
+    if (opa == 0 || opa >= 250) return opa;
+    int corrected = opa + (opa >> 3);
+    return (uint8_t)(corrected > 255 ? 255 : corrected);
+}
+
 static inline int npot2pot(int num)
 {
     if (num != 0)
@@ -61,6 +71,10 @@ static inline int npot2pot(int num)
 
 void lv_draw_xgu_init_ctx(lv_disp_drv_t *drv, lv_draw_ctx_t *draw_ctx);
 void lv_draw_xgu_deinit_ctx(lv_disp_drv_t *drv, lv_draw_ctx_t *draw_ctx);
+
+// Shared helpers
+void xgu_draw_rect_rounded(const lv_area_t *area, lv_coord_t radius,
+                           uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
 //Rect types
 void xgu_draw_rect(struct _lv_draw_ctx_t *draw_ctx, const lv_draw_rect_dsc_t *dsc, const lv_area_t *coords);
