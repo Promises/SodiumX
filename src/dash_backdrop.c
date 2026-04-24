@@ -271,13 +271,7 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
     if (scr_h <= 0) scr_h = lv_disp_get_ver_res(NULL);
     uint16_t zoom_w = scr_w * 256 / w;
     uint16_t zoom_h = scr_h * 256 / h;
-    uint16_t zoom_final = LV_MAX(zoom_w, zoom_h);
-    lv_img_set_zoom(slot->canvas, zoom_final);
-
-    dash_printf(LEVEL_TRACE, "[BACKDROP] decode: src=%dx%d scr=%dx%d zoom_w=%d zoom_h=%d zoom=%d pos=(%d,%d) obj_size=(%d,%d)\n",
-                w, h, scr_w, scr_h, zoom_w, zoom_h, zoom_final,
-                lv_obj_get_x(slot->canvas), lv_obj_get_y(slot->canvas),
-                lv_obj_get_width(slot->canvas), lv_obj_get_height(slot->canvas));
+    lv_img_set_zoom(slot->canvas, LV_MAX(zoom_w, zoom_h));
 
     /* Fade in this slot */
     dash_anim_opa(slot->canvas, 0, 130, 600);
