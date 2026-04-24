@@ -279,13 +279,11 @@ static void jpg_decompression_complete_cb(void *img, void *mem, int w, int h, vo
     lv_img_set_size_mode(t->jpg_info->canvas, LV_IMG_SIZE_MODE_REAL);
 
     /* Zoom to cover the tile (like CSS background-size: cover).
-     * Use the larger ratio so the image fills both dimensions. */
-    int tile_w = lv_obj_get_width(image_container);
-    int tile_h = lv_obj_get_height(image_container);
-    if (tile_w <= 0) tile_w = DASH_TILE_W;
-    if (tile_h <= 0) tile_h = DASH_TILE_H;
-    uint16_t zoom_w = tile_w * 256 / w;
-    uint16_t zoom_h = tile_h * 256 / h;
+     * Always use the base tile dimensions — the tile may not have been
+     * laid out yet on initial load, so lv_obj_get_width could return 0
+     * or a stale value. The focus animation scales the tile from here. */
+    uint16_t zoom_w = DASH_TILE_W * 256 / w;
+    uint16_t zoom_h = DASH_TILE_H * 256 / h;
     lv_img_set_zoom(t->jpg_info->canvas, LV_MIN(zoom_w, zoom_h));
     lv_obj_mark_layout_as_dirty(t->jpg_info->canvas);
 

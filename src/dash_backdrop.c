@@ -267,9 +267,17 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
     /* Zoom to cover the screen — GPU does the scaling */
     lv_coord_t scr_w = lv_obj_get_width(lv_scr_act());
     lv_coord_t scr_h = lv_obj_get_height(lv_scr_act());
+    if (scr_w <= 0) scr_w = lv_disp_get_hor_res(NULL);
+    if (scr_h <= 0) scr_h = lv_disp_get_ver_res(NULL);
     uint16_t zoom_w = scr_w * 256 / w;
     uint16_t zoom_h = scr_h * 256 / h;
-    lv_img_set_zoom(slot->canvas, LV_MAX(zoom_w, zoom_h));
+    uint16_t zoom_final = LV_MAX(zoom_w, zoom_h);
+    lv_img_set_zoom(slot->canvas, zoom_final);
+
+    dash_printf(LEVEL_TRACE, "[BACKDROP] decode: src=%dx%d scr=%dx%d zoom_w=%d zoom_h=%d zoom=%d pos=(%d,%d) obj_size=(%d,%d)\n",
+                w, h, scr_w, scr_h, zoom_w, zoom_h, zoom_final,
+                lv_obj_get_x(slot->canvas), lv_obj_get_y(slot->canvas),
+                lv_obj_get_width(slot->canvas), lv_obj_get_height(slot->canvas));
 
     /* Fade in this slot */
     dash_anim_opa(slot->canvas, 0, 130, 600);
@@ -299,9 +307,16 @@ void dash_backdrop_create(lv_obj_t *parent)
     lv_obj_set_style_radius(backdrop_color, 0, LV_PART_MAIN);
     lv_obj_clear_flag(backdrop_color, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
+    /* Canvas target size — must match LVGL's layout-computed size for the
+     * pivot to be correct on the first frame (before layout runs). */
+    lv_coord_t canvas_w, canvas_h;
+    if (scr_w >= 1280) { canvas_w = 1284; canvas_h = 725; }
+    else               { canvas_w = 644;  canvas_h = 485; }
+
     /* Slot A canvas */
     slot_a.canvas = lv_canvas_create(parent);
     lv_obj_set_pos(slot_a.canvas, 0, 0);
+    lv_obj_set_size(slot_a.canvas, canvas_w, canvas_h);
     lv_obj_set_style_opa(slot_a.canvas, 0, LV_PART_MAIN);
     lv_obj_set_style_img_recolor_opa(slot_a.canvas, 0, LV_PART_MAIN);
     lv_img_set_antialias(slot_a.canvas, true);
@@ -313,6 +328,7 @@ void dash_backdrop_create(lv_obj_t *parent)
     /* Slot B canvas */
     slot_b.canvas = lv_canvas_create(parent);
     lv_obj_set_pos(slot_b.canvas, 0, 0);
+    lv_obj_set_size(slot_b.canvas, canvas_w, canvas_h);
     lv_obj_set_style_opa(slot_b.canvas, 0, LV_PART_MAIN);
     lv_obj_set_style_img_recolor_opa(slot_b.canvas, 0, LV_PART_MAIN);
     lv_img_set_antialias(slot_b.canvas, true);
