@@ -390,7 +390,7 @@ static void ensure_focus_badge(lv_obj_t *tile)
 
         lv_obj_t *lbl = lv_label_create(focus_badge);
         lv_label_set_text(lbl, "NOW FOCUSED");
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_10, LV_PART_MAIN);
+        lv_obj_set_style_text_font(lbl, &lv_font_rubik_10, LV_PART_MAIN);
         lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
         lv_obj_set_style_text_letter_space(lbl, 1, LV_PART_MAIN);
     }
@@ -777,7 +777,7 @@ static void item_scan_add(lv_obj_t *scroller, item_strings_callback_t *item_cb)
 
             /* Title label at bottom */
             lv_obj_t *title_lbl = lv_label_create(tile);
-            lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+            lv_obj_set_style_text_font(title_lbl, &lv_font_rubik_16, LV_PART_MAIN);
             lv_obj_set_style_text_color(title_lbl, lv_color_white(), LV_PART_MAIN);
             lv_obj_set_width(title_lbl, DASH_TILE_W - 28);
             lv_label_set_text(title_lbl, item->title);

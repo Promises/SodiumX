@@ -96,7 +96,8 @@ static void amask_to_a(uint8_t *dest, const uint8_t *src, int width, int height,
     }
 }
 
-static void bind_texture(lv_draw_xgu_ctx_t *xgu_ctx, draw_cache_value_t *texture, uint32_t tex_id, XguTexFilter filter)
+static void bind_texture_ex(lv_draw_xgu_ctx_t *xgu_ctx, draw_cache_value_t *texture,
+                            uint32_t tex_id, XguTexFilter filter, XguTexConvolution conv)
 {
     if (xgu_ctx->xgu_data->current_tex != tex_id)
     {
@@ -106,9 +107,14 @@ static void bind_texture(lv_draw_xgu_ctx_t *xgu_ctx, draw_cache_value_t *texture
         p = xgu_set_texture_control0(p, 0, true, 0, 0);
         p = xgu_set_texture_control1(p, 0, texture->tw * texture->bytes_pp);
         p = xgu_set_texture_image_rect(p, 0, texture->tw, texture->th);
-        p = xgu_set_texture_filter(p, 0, 0, XGU_TEXTURE_CONVOLUTION_GAUSSIAN, filter, filter, false, false, false, false);
+        p = xgu_set_texture_filter(p, 0, 0, conv, filter, filter, false, false, false, false);
         xgu_ctx->xgu_data->current_tex = tex_id;
     }
+}
+
+static void bind_texture(lv_draw_xgu_ctx_t *xgu_ctx, draw_cache_value_t *texture, uint32_t tex_id, XguTexFilter filter)
+{
+    bind_texture_ex(xgu_ctx, texture, tex_id, filter, XGU_TEXTURE_CONVOLUTION_GAUSSIAN);
 }
 
 static void *create_texture(lv_draw_xgu_ctx_t *xgu_ctx, const uint8_t *src_buf, const lv_area_t *src_area, XguTexFormatColor fmt, uint32_t bytes_pp, uint32_t key)
@@ -166,19 +172,22 @@ static void map_textured_rect(draw_cache_value_t *texture, const lv_area_t *tex_
     t0 = (float)(draw_area->y1 - tex_area->y1) / zm;
     t1 = texture->ih - ((float)(tex_area->y2 - draw_area->y2) / zm);
 
+    float x2 = (float)draw_area->x2 + 1;
+    float y2 = (float)draw_area->y2 + 1;
+
     p = xgu_begin(p, XGU_TRIANGLE_STRIP);
 
     p = xgux_set_texcoord3f(p, 0, s0, t0, 1);
     p = xgu_vertex4f(p, (float)draw_area->x1, (float)draw_area->y1, 1, 1);
 
     p = xgux_set_texcoord3f(p, 0, s1, t0, 1);
-    p = xgu_vertex4f(p, (float)draw_area->x2, (float)draw_area->y1, 1, 1);
+    p = xgu_vertex4f(p, x2, (float)draw_area->y1, 1, 1);
 
     p = xgux_set_texcoord3f(p, 0, s0, t1, 1);
-    p = xgu_vertex4f(p, (float)draw_area->x1, (float)draw_area->y2, 1, 1);
+    p = xgu_vertex4f(p, (float)draw_area->x1, y2, 1, 1);
 
     p = xgux_set_texcoord3f(p, 0, s1, t1, 1);
-    p = xgu_vertex4f(p, (float)draw_area->x2, (float)draw_area->y2, 1, 1);
+    p = xgu_vertex4f(p, x2, y2, 1, 1);
 
     p = xgu_end(p);
 }
@@ -222,6 +231,8 @@ void xgu_draw_letter(struct _lv_draw_ctx_t *draw_ctx, const lv_draw_label_dsc_t 
     {
         return;
     }
+    /* Note: map_textured_rect adds +1 to x2/y2 for inclusive→exclusive
+     * conversion, so even 1px glyphs get a valid quad. */
 
     lv_lru_get(xgu_ctx->xgu_data->texture_cache, &bmp, sizeof(bmp), (void **)&texture);
     if (texture == NULL)
@@ -254,7 +265,10 @@ void xgu_draw_letter(struct _lv_draw_ctx_t *draw_ctx, const lv_draw_label_dsc_t 
     p = xgux_set_color4ub(p, dsc->color.ch.red, dsc->color.ch.green,
                           dsc->color.ch.blue, xgu_correct_opa(dsc->opa));
 
-    bind_texture(xgu_ctx, texture, (uint32_t)bmp, XGU_TEXTURE_FILTER_LINEAR);
+    /* NEAREST filtering for glyphs — LINEAR + Gaussian convolution causes
+     * narrow glyphs (1-3px) in padded 8px textures to bleed into empty
+     * padding, making thin characters like i, l, I invisible. */
+    bind_texture(xgu_ctx, texture, (uint32_t)bmp, XGU_TEXTURE_FILTER_NEAREST);
 
     map_textured_rect(texture, &letter_area, &draw_area, 256.0f);
     pb_end(p);

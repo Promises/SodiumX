@@ -37,10 +37,21 @@ static void clock_timer_cb(lv_timer_t *t)
         uint32_t fps = sb_frame_counter;
         sb_frame_counter = 0;
         uint32_t cpu = 100 - lv_timer_get_idle();
+
+#ifdef NXDK
+        /* Xbox: show actual system RAM usage */
+        extern void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used);
+        uint32_t ram_total, ram_used;
+        get_ram_usage(&ram_total, &ram_used);
+        lv_label_set_text_fmt(sb_fps_label, "%d FPS  %d%% CPU  %d/%dMB",
+                              fps, cpu, ram_used, ram_total);
+#else
+        /* Desktop: show LVGL TLSF pool usage */
         uint32_t mem_used, mem_cap;
         lx_mem_usage(&mem_used, &mem_cap);
         lv_label_set_text_fmt(sb_fps_label, "%d FPS  %d%% CPU  %dkB",
                               fps, cpu, mem_used / 1024);
+#endif
     }
 }
 
@@ -65,7 +76,7 @@ static lv_obj_t *create_chip(lv_obj_t *parent, const char *text)
     {
         lv_obj_t *lbl = lv_label_create(chip);
         lv_label_set_text(lbl, text);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+        lv_obj_set_style_text_font(lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
     }
     return chip;
 }
@@ -150,12 +161,12 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
 
     lv_obj_t *name_lbl = lv_label_create(logo_text);
     lv_label_set_text(name_lbl, "LithiumX");
-    lv_obj_set_style_text_font(name_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(name_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(name_lbl, EF_FG, LV_PART_MAIN);
 
     lv_obj_t *ver_lbl = lv_label_create(logo_text);
     lv_label_set_text(ver_lbl, "v2.4 " LV_SYMBOL_DUMMY " nv2a");
-    lv_obj_set_style_text_font(ver_lbl, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_font(ver_lbl, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
     lv_obj_set_style_text_color(ver_lbl, EF_FG_MUTED, LV_PART_MAIN);
     lv_obj_set_style_text_opa(ver_lbl, 179, LV_PART_MAIN); /* 70% */
 
@@ -163,7 +174,7 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     sb_fps_chip = create_chip(left, NULL);
     sb_fps_label = lv_label_create(sb_fps_chip);
     lv_label_set_text(sb_fps_label, "60 FPS  0% CPU  0kB");
-    lv_obj_set_style_text_font(sb_fps_label, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_font(sb_fps_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
     lv_obj_set_style_text_color(sb_fps_label, EF_GREEN, LV_PART_MAIN);
 
     /* ── Right group ── */
@@ -182,21 +193,21 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     sb_temp_chip = create_chip(right, NULL);
     lv_obj_t *temp_lbl = lv_label_create(sb_temp_chip);
     lv_label_set_text(temp_lbl, LV_SYMBOL_WARNING " 48" LV_SYMBOL_DUMMY "\xC2\xB0");
-    lv_obj_set_style_text_font(temp_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(temp_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
 
     /* Network chip */
     sb_net_chip = create_chip(right, NULL);
     create_status_dot(sb_net_chip);
     lv_obj_t *net_lbl = lv_label_create(sb_net_chip);
     lv_label_set_text(net_lbl, "FTP");
-    lv_obj_set_style_text_font(net_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(net_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(net_lbl, EF_FG_MUTED, LV_PART_MAIN);
 
     /* Clock chip */
     sb_clock_chip = create_chip(right, NULL);
     sb_clock_label = lv_label_create(sb_clock_chip);
     lv_label_set_text(sb_clock_label, "00:00");
-    lv_obj_set_style_text_font(sb_clock_label, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(sb_clock_label, &lv_font_jetbrains_mono_14, LV_PART_MAIN);
 
     /* Start timers */
     sb_clock_timer = lv_timer_create(clock_timer_cb, 1000, NULL);

@@ -54,7 +54,7 @@ static void create_stat_card(lv_obj_t *parent, int index,
 
     /* Value */
     stat_labels[index] = lv_label_create(card);
-    lv_obj_set_style_text_font(stat_labels[index], &lv_font_montserrat_32, LV_PART_MAIN);
+    lv_obj_set_style_text_font(stat_labels[index], &lv_font_rubik_32, LV_PART_MAIN);
     lv_obj_set_style_text_color(stat_labels[index], lv_color_white(), LV_PART_MAIN);
     lv_label_set_text(stat_labels[index], value_text);
 
@@ -176,7 +176,7 @@ void dash_sysinfo_open(void)
     lv_label_set_text(eyebrow, "SYSTEM");
 
     lv_obj_t *title = lv_label_create(header_left);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "Console Status");
 
     lv_obj_t *subtitle = lv_label_create(header_left);

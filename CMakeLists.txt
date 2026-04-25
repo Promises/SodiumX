@@ -72,6 +72,19 @@ set(SOURCES
     src/dash_sysinfo.c
     src/dash_remote.c
     src/dash_backdrop.c
+    src/fonts/lv_font_rubik_10.c
+    src/fonts/lv_font_rubik_12.c
+    src/fonts/lv_font_rubik_14.c
+    src/fonts/lv_font_rubik_16.c
+    src/fonts/lv_font_rubik_20.c
+    src/fonts/lv_font_rubik_22.c
+    src/fonts/lv_font_rubik_24.c
+    src/fonts/lv_font_rubik_26.c
+    src/fonts/lv_font_rubik_32.c
+    src/fonts/lv_font_jetbrains_mono_10.c
+    src/fonts/lv_font_jetbrains_mono_12.c
+    src/fonts/lv_font_jetbrains_mono_14.c
+    src/fonts/lv_font_jetbrains_mono_16.c
     src/lvgl_widgets/confirmbox.c
     src/lvgl_widgets/menu.c
     src/lvgl_widgets/generic_container.c
@@ -91,6 +104,7 @@ add_executable(LithiumX ${SOURCES})
 
 target_compile_options(LithiumX PUBLIC -Wall -Wextra)
 target_compile_definitions(LithiumX PUBLIC "-DLVGL_USE_CUSTOM_KEYBOARD_MAP")
+include_directories(src/fonts)
 target_include_directories(LithiumX PUBLIC . libs)
 
 target_link_directories(LithiumX PRIVATE ${SDL2_LIBRARY_DIRS} ${TURBOJPEG_LIBRARY_DIRS} ${LIBJPEG_LIBRARY_DIRS})

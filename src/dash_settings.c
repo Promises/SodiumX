@@ -156,14 +156,14 @@ static lv_obj_t *create_setting_row(lv_obj_t *parent, const char *label_text,
     lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *lbl = lv_label_create(left);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
     lv_label_set_text(lbl, label_text);
 
     if (desc_text)
     {
         lv_obj_t *desc = lv_label_create(left);
-        lv_obj_set_style_text_font(desc, &lv_font_montserrat_12, LV_PART_MAIN);
+        lv_obj_set_style_text_font(desc, &lv_font_rubik_12, LV_PART_MAIN);
         lv_obj_set_style_text_color(desc, EF_FG_MUTED, LV_PART_MAIN);
         lv_obj_set_width(desc, 360);
         lv_label_set_text(desc, desc_text);
@@ -179,7 +179,7 @@ static void create_readout(lv_obj_t *parent, const char *label_text, const char 
     lv_obj_t *row = create_setting_row(parent, label_text, NULL, first);
 
     lv_obj_t *val = lv_label_create(row);
-    lv_obj_set_style_text_font(val, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(val, &lv_font_rubik_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(val, EF_FG, LV_PART_MAIN);
     lv_label_set_text(val, value_text);
 }
@@ -188,7 +188,7 @@ static void create_readout(lv_obj_t *parent, const char *label_text, const char 
 static void build_display_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "Display");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -212,7 +212,7 @@ static void build_display_section(lv_obj_t *body)
 static void build_network_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "Network");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -229,7 +229,7 @@ static void build_network_section(lv_obj_t *body)
 static void build_audio_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "Audio");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -243,7 +243,7 @@ static void build_audio_section(lv_obj_t *body)
 static void build_system_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "System");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -266,7 +266,7 @@ static void build_system_section(lv_obj_t *body)
 static void build_eeprom_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "EEPROM");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -281,7 +281,7 @@ static void build_eeprom_section(lv_obj_t *body)
 static void build_about_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "About LithiumX");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -427,7 +427,7 @@ void dash_settings_open(void)
 
         lv_obj_t *icon = lv_label_create(item);
         lv_label_set_text(icon, section_icons[i]);
-        lv_obj_set_style_text_font(icon, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(icon, &lv_font_rubik_14, LV_PART_MAIN);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_label_set_text(lbl, section_names[i]);

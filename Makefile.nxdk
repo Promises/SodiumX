@@ -21,6 +21,12 @@ SRCS += \
     $(CURDIR)/src/dash_browser.c \
     $(CURDIR)/src/dash_launcher.c \
     $(CURDIR)/src/dash_debug.c \
+    $(CURDIR)/src/dash_anim.c \
+    $(CURDIR)/src/dash_statusbar.c \
+    $(CURDIR)/src/dash_controls_bar.c \
+    $(CURDIR)/src/dash_sysinfo.c \
+    $(CURDIR)/src/dash_remote.c \
+    $(CURDIR)/src/dash_backdrop.c \
     $(CURDIR)/src/main.c \
     $(CURDIR)/src/lvgl_widgets/confirmbox.c \
     $(CURDIR)/src/lvgl_widgets/generic_container.c \
@@ -38,11 +44,25 @@ SRCS += \
     $(CURDIR)/src/libs/toml/toml.c \
     $(CURDIR)/src/libs/tlsf/tlsf.c \
     $(CURDIR)/src/libs/ftpd/ftp_file.c src/libs/ftpd/ftp_server.c src/libs/ftpd/ftp.c \
-    $(NXDK_DIR)/lib/net/lwip/src/apps/sntp/sntp.c
+    $(NXDK_DIR)/lib/net/lwip/src/apps/sntp/sntp.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_10.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_12.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_14.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_16.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_20.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_22.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_24.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_26.c \
+    $(CURDIR)/src/fonts/lv_font_rubik_32.c \
+    $(CURDIR)/src/fonts/lv_font_jetbrains_mono_10.c \
+    $(CURDIR)/src/fonts/lv_font_jetbrains_mono_12.c \
+    $(CURDIR)/src/fonts/lv_font_jetbrains_mono_14.c \
+    $(CURDIR)/src/fonts/lv_font_jetbrains_mono_16.c
 
 CFLAGS += \
     -I$(CURDIR)/src \
     -I$(CURDIR)/src/libs \
+    -I$(CURDIR)/src/fonts \
     -DLV_LVGL_H_INCLUDE_SIMPLE -DLV_CONF_PATH=$(LV_CONF_PATH) \
     -DWIN32 \
     -DBUILD_VERSION=\"$(GIT_COMMIT_HASH)\" \

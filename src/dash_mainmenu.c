@@ -10,6 +10,7 @@
 static void dash_system_info(void *param);
 static void dash_utilities(void *param);
 static void dash_settings_page(void *param);
+static void dash_rescan_library(void *param);
 static void dash_launch_msdash(void *param);
 static void dash_launch_dvd(void *param);
 static void dash_open_about(void *param);
@@ -28,6 +29,7 @@ typedef struct {
 
 static const mainmenu_item_t menu_items[] = {
     {"System Information", LV_SYMBOL_SETTINGS,  dash_system_info, NULL},
+    {"Rescan Library",     LV_SYMBOL_REFRESH,   dash_rescan_library, NULL},
     {"Launch MS Dashboard", LV_SYMBOL_RIGHT,    dash_launch_msdash, "Accept \"Launch MS Dashboard\""},
     {"Launch DVD",          LV_SYMBOL_AUDIO,    dash_launch_dvd, "Accept \"Launch DVD\""},
     {"Utilities",           LV_SYMBOL_LIST,     dash_utilities, NULL},
@@ -192,7 +194,7 @@ void dash_mainmenu_open()
     lv_label_set_text(eyebrow, "LITHIUMX");
 
     lv_obj_t *title = lv_label_create(title_col);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_20, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, lv_color_white(), LV_PART_MAIN);
     lv_label_set_text(title, "Main Menu");
 
@@ -235,13 +237,13 @@ void dash_mainmenu_open()
         lv_obj_t *icon_lbl = lv_label_create(icon_tile);
         lv_label_set_text(icon_lbl, menu_items[i].icon_symbol);
         lv_obj_set_style_text_color(icon_lbl, EF_FG_MUTED, LV_PART_MAIN);
-        lv_obj_set_style_text_font(icon_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(icon_lbl, &lv_font_rubik_14, LV_PART_MAIN);
         lv_obj_center(icon_lbl);
 
         /* Label */
         lv_obj_t *lbl = lv_label_create(row);
         lv_label_set_text(lbl, menu_items[i].label);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+        lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
         lv_obj_set_flex_grow(lbl, 1);
 
         /* Chevron */
@@ -340,6 +342,56 @@ static void dash_rebuild_database(void *param)
 {
     (void)param;
     db_command_with_callback(SQL_TITLE_DELETE_ENTRIES, NULL, NULL);
+}
+
+/* ── Rescan library ── */
+static void rescan_page_cb(void *param)
+{
+    const char *page_name = (const char *)param;
+    dash_scroller_rescan_page(page_name);
+}
+
+static void rescan_all_cb(void *param)
+{
+    (void)param;
+    int cnt = dash_scroller_get_page_count();
+    for (int i = 0; i < cnt; i++)
+    {
+        const char *name = dash_scroller_get_title(i);
+        if (name && strcmp(name, "Recent") != 0)
+        {
+            dash_scroller_rescan_page(name);
+        }
+    }
+}
+
+static void dash_rescan_library(void *param)
+{
+    (void)param;
+    int page_cnt = dash_scroller_get_page_count();
+
+    /* Build submenu: "All" + each non-Recent page */
+    int item_cnt = 0;
+    menu_items_t items[DASH_MAX_PAGES + 1];
+
+    items[item_cnt].str = "Rescan All";
+    items[item_cnt].cb = rescan_all_cb;
+    items[item_cnt].callback_param = NULL;
+    items[item_cnt].confirm_box = "Accept \"Rescan All\"";
+    item_cnt++;
+
+    for (int i = 0; i < page_cnt; i++)
+    {
+        const char *name = dash_scroller_get_title(i);
+        if (!name || strcmp(name, "Recent") == 0) continue;
+        items[item_cnt].str = name;
+        items[item_cnt].cb = rescan_page_cb;
+        items[item_cnt].callback_param = (void *)name;
+        items[item_cnt].confirm_box = NULL;
+        item_cnt++;
+    }
+
+    menu_open(items, item_cnt);
 }
 
 static void dash_clear_recent(void *param)

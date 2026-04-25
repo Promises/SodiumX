@@ -96,7 +96,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_all(&menu_table_style, 0);
     lv_style_set_radius(&menu_table_style, 0);
     lv_style_set_text_color(&menu_table_style, EF_FG);
-    lv_style_set_text_font(&menu_table_style, &lv_font_montserrat_20);
+    lv_style_set_text_font(&menu_table_style, &lv_font_rubik_20);
     lv_style_set_outline_width(&menu_table_style, 0);
     lv_style_set_text_line_space(&menu_table_style, 10);
 
@@ -105,7 +105,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_border_color(&menu_table_cell_style, EF_BG3);
     lv_style_set_bg_opa(&menu_table_cell_style, 0);
     lv_style_set_text_color(&menu_table_cell_style, EF_FG);
-    lv_style_set_text_font(&menu_table_cell_style, &lv_font_montserrat_20);
+    lv_style_set_text_font(&menu_table_cell_style, &lv_font_rubik_20);
     lv_style_set_pad_top(&menu_table_cell_style, 10);
     lv_style_set_pad_bottom(&menu_table_cell_style, 10);
     lv_style_set_radius(&menu_table_cell_style, 0);
@@ -118,7 +118,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_all(&object_style, 0);
     lv_style_set_radius(&object_style, 0);
     lv_style_set_text_color(&object_style, EF_FG);
-    lv_style_set_text_font(&object_style, &lv_font_montserrat_20);
+    lv_style_set_text_font(&object_style, &lv_font_rubik_20);
     lv_style_set_outline_width(&object_style, 0);
     lv_style_set_text_line_space(&object_style, 10);
 
@@ -142,14 +142,14 @@ void dash_styles_init(lv_color_t theme_colour)
 
     lv_style_init(&titleview_image_text_style);
     lv_style_set_align(&titleview_image_text_style, LV_ALIGN_CENTER);
-    lv_style_set_text_font(&titleview_image_text_style, &lv_font_montserrat_20);
+    lv_style_set_text_font(&titleview_image_text_style, &lv_font_rubik_20);
     lv_style_set_text_color(&titleview_image_text_style, EF_FG);
     lv_style_set_text_align(&titleview_image_text_style, LV_TEXT_ALIGN_CENTER);
 
     lv_style_init(&titleview_header_footer_style);
     lv_style_set_bg_color(&titleview_header_footer_style, theme_colour);
     lv_style_set_text_color(&titleview_header_footer_style, lv_color_white());
-    lv_style_set_text_font(&titleview_header_footer_style, &lv_font_montserrat_26);
+    lv_style_set_text_font(&titleview_header_footer_style, &lv_font_rubik_26);
 
     /* ── Status bar (top 44px) ── */
 
@@ -161,7 +161,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_top(&status_bar_style, 0);
     lv_style_set_pad_bottom(&status_bar_style, 0);
     lv_style_set_text_color(&status_bar_style, EF_FG);
-    lv_style_set_text_font(&status_bar_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&status_bar_style, &lv_font_rubik_12);
     lv_style_set_radius(&status_bar_style, 0);
 
     /* Status chip pills: rgba(46,56,60,.55) bg, 1px border, radius 999 */
@@ -177,7 +177,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_top(&status_chip_style, 6);
     lv_style_set_pad_bottom(&status_chip_style, 6);
     lv_style_set_pad_column(&status_chip_style, 8);
-    lv_style_set_text_font(&status_chip_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&status_chip_style, &lv_font_rubik_12);
     lv_style_set_text_color(&status_chip_style, EF_FG);
 
     /* ── Tab bar pills ── */
@@ -195,7 +195,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_top(&tab_active_style, 8);
     lv_style_set_pad_bottom(&tab_active_style, 8);
     lv_style_set_text_color(&tab_active_style, dash_accent_color);
-    lv_style_set_text_font(&tab_active_style, &lv_font_montserrat_14);
+    lv_style_set_text_font(&tab_active_style, &lv_font_rubik_14);
 
     /* Inactive tab: muted text, no bg */
     lv_style_init(&tab_inactive_style);
@@ -207,7 +207,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_top(&tab_inactive_style, 8);
     lv_style_set_pad_bottom(&tab_inactive_style, 8);
     lv_style_set_text_color(&tab_inactive_style, EF_FG_MUTED);
-    lv_style_set_text_font(&tab_inactive_style, &lv_font_montserrat_14);
+    lv_style_set_text_font(&tab_inactive_style, &lv_font_rubik_14);
 
     /* ── Horizontal rail tiles ── */
 
@@ -250,7 +250,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_left(&controls_bar_style, 24);
     lv_style_set_pad_right(&controls_bar_style, 24);
     lv_style_set_text_color(&controls_bar_style, EF_FG);
-    lv_style_set_text_font(&controls_bar_style, &lv_font_montserrat_14);
+    lv_style_set_text_font(&controls_bar_style, &lv_font_rubik_14);
 
     /* ── Overlay scrim + card ── */
 
@@ -275,7 +275,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_shadow_opa(&overlay_card_style, 153); /* 60% */
     lv_style_set_clip_corner(&overlay_card_style, true);
     lv_style_set_text_color(&overlay_card_style, EF_FG);
-    lv_style_set_text_font(&overlay_card_style, &lv_font_montserrat_16);
+    lv_style_set_text_font(&overlay_card_style, &lv_font_rubik_16);
 
     /* Menu item: padding 14x16, radius 10 */
     lv_style_init(&overlay_item_style);
@@ -288,7 +288,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_bottom(&overlay_item_style, 14);
     lv_style_set_pad_column(&overlay_item_style, 14);
     lv_style_set_text_color(&overlay_item_style, EF_FG);
-    lv_style_set_text_font(&overlay_item_style, &lv_font_montserrat_16);
+    lv_style_set_text_font(&overlay_item_style, &lv_font_rubik_16);
 
     /* Selected menu item: accent gradient bg, white text, translateX(4px) */
     lv_style_init(&overlay_item_focused_style);
@@ -327,7 +327,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_bottom(&panel_nav_style, 20);
     lv_style_set_pad_row(&panel_nav_style, 2);
     lv_style_set_text_color(&panel_nav_style, EF_FG_MUTED);
-    lv_style_set_text_font(&panel_nav_style, &lv_font_montserrat_14);
+    lv_style_set_text_font(&panel_nav_style, &lv_font_rubik_14);
 
     /* Nav item: padding 10x12, radius 8 */
     lv_style_init(&panel_nav_item_style);
@@ -397,7 +397,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_column(&seg_control_style, 0);
     lv_style_set_border_width(&seg_control_style, 0);
     lv_style_set_text_color(&seg_control_style, EF_FG_MUTED);
-    lv_style_set_text_font(&seg_control_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&seg_control_style, &lv_font_rubik_12);
 
     /* Segmented active option: bg4, fg text, radius 6 */
     lv_style_init(&seg_active_style);
@@ -451,7 +451,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_column(&file_row_style, 12);
     lv_style_set_radius(&file_row_style, 0);
     lv_style_set_text_color(&file_row_style, EF_FG);
-    lv_style_set_text_font(&file_row_style, &lv_font_montserrat_14);
+    lv_style_set_text_font(&file_row_style, &lv_font_rubik_14);
 
     lv_style_init(&file_row_selected_style);
     lv_style_set_bg_color(&file_row_selected_style, dash_accent_color);
@@ -462,13 +462,13 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_bg_color(&file_header_row_style, EF_FG);
     lv_style_set_bg_opa(&file_header_row_style, 8); /* ~3% */
     lv_style_set_text_color(&file_header_row_style, EF_FG_MUTED);
-    lv_style_set_text_font(&file_header_row_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&file_header_row_style, &lv_font_rubik_12);
 
     /* ── Typography styles ── */
 
     /* Eyebrow: 11px uppercase, tracked, muted (color overridden per-use) */
     lv_style_init(&eyebrow_style);
-    lv_style_set_text_font(&eyebrow_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&eyebrow_style, &lv_font_rubik_12);
     lv_style_set_text_color(&eyebrow_style, EF_FG_MUTED);
     lv_style_set_text_letter_space(&eyebrow_style, 2);
     lv_style_set_bg_opa(&eyebrow_style, LV_OPA_TRANSP);
@@ -477,7 +477,7 @@ void dash_styles_init(lv_color_t theme_colour)
 
     /* Meta title: 22px, white */
     lv_style_init(&meta_title_style);
-    lv_style_set_text_font(&meta_title_style, &lv_font_montserrat_22);
+    lv_style_set_text_font(&meta_title_style, &lv_font_rubik_22);
     lv_style_set_text_color(&meta_title_style, lv_color_white());
     lv_style_set_bg_opa(&meta_title_style, LV_OPA_TRANSP);
     lv_style_set_border_width(&meta_title_style, 0);
@@ -485,7 +485,7 @@ void dash_styles_init(lv_color_t theme_colour)
 
     /* Body muted: 13px, muted fg */
     lv_style_init(&body_muted_style);
-    lv_style_set_text_font(&body_muted_style, &lv_font_montserrat_14);
+    lv_style_set_text_font(&body_muted_style, &lv_font_rubik_14);
     lv_style_set_text_color(&body_muted_style, EF_FG_MUTED);
     lv_style_set_bg_opa(&body_muted_style, LV_OPA_TRANSP);
     lv_style_set_border_width(&body_muted_style, 0);
@@ -493,7 +493,7 @@ void dash_styles_init(lv_color_t theme_colour)
 
     /* Mono small: 12px, muted */
     lv_style_init(&mono_small_style);
-    lv_style_set_text_font(&mono_small_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&mono_small_style, &lv_font_rubik_12);
     lv_style_set_text_color(&mono_small_style, EF_FG_MUTED);
     lv_style_set_bg_opa(&mono_small_style, LV_OPA_TRANSP);
     lv_style_set_border_width(&mono_small_style, 0);
@@ -512,7 +512,7 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_top(&meta_pill_style, 6);
     lv_style_set_pad_bottom(&meta_pill_style, 6);
     lv_style_set_text_color(&meta_pill_style, EF_FG);
-    lv_style_set_text_font(&meta_pill_style, &lv_font_montserrat_12);
+    lv_style_set_text_font(&meta_pill_style, &lv_font_rubik_12);
 
     lv_obj_mark_layout_as_dirty(lv_scr_act());
 }

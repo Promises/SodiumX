@@ -24,6 +24,7 @@ int strcasecmp(const char *s1, const char *s2);
 #include <SDL2/SDL.h>
 #endif
 
+#include "lx_fonts.h"
 #include "dash_database.h"
 #include "dash_eeprom.h"
 #include "dash_mainmenu.h"

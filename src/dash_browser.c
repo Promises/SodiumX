@@ -199,7 +199,7 @@ void dash_browser_open(char *path, browser_item_selection_cb cb)
     lv_label_set_text(eyebrow, "BROWSER");
 
     lv_obj_t *title = lv_label_create(header_left);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
     lv_label_set_text(title, "Files & XBEs");
 
     /* Breadcrumb */
@@ -265,7 +265,7 @@ void dash_browser_open(char *path, browser_item_selection_cb cb)
         lv_obj_set_flex_grow(name, 1);
         lv_label_set_text(name, dinfo->list[i].item);
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
-        lv_obj_set_style_text_font(name, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(name, &lv_font_rubik_14, LV_PART_MAIN);
 
         /* Size placeholder */
         lv_obj_t *size = lv_label_create(row);

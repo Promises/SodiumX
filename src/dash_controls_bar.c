@@ -8,24 +8,34 @@ static lv_obj_t *lbl_b;
 static lv_obj_t *lbl_x;
 static lv_obj_t *lbl_y;
 
+/* FA circle glyph U+F111 as UTF-8 */
+#define FA_CIRCLE "\xEF\x84\x91"
+
 static lv_obj_t *create_btn_glyph(lv_obj_t *parent, const char *letter, lv_color_t color)
 {
-    lv_obj_t *circle = lv_obj_create(parent);
-    lv_obj_set_size(circle, 22, 22);
-    lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(circle, color, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(circle, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(circle, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(circle, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(circle, LV_OBJ_FLAG_SCROLLABLE);
+    /* Container sized to the circle glyph */
+    lv_obj_t *btn = lv_obj_create(parent);
+    lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *lbl = lv_label_create(circle);
+    /* FA circle glyph as anti-aliased background */
+    lv_obj_t *circle_lbl = lv_label_create(btn);
+    lv_label_set_text(circle_lbl, FA_CIRCLE);
+    lv_obj_set_style_text_font(circle_lbl, &lv_font_rubik_26, LV_PART_MAIN);
+    lv_obj_set_style_text_color(circle_lbl, color, LV_PART_MAIN);
+    lv_obj_center(circle_lbl);
+
+    /* Letter label centered on top */
+    lv_obj_t *lbl = lv_label_create(btn);
     lv_label_set_text(lbl, letter);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &lv_font_rubik_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0x0b0d0e), LV_PART_MAIN);
     lv_obj_center(lbl);
 
-    return circle;
+    return btn;
 }
 
 static lv_obj_t *create_hint(lv_obj_t *parent, const char *letter, lv_color_t color,
@@ -46,7 +56,7 @@ static lv_obj_t *create_hint(lv_obj_t *parent, const char *letter, lv_color_t co
 
     lv_obj_t *lbl = lv_label_create(hint);
     lv_label_set_text(lbl, label_text);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &lv_font_rubik_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
 
     if (label_out) *label_out = lbl;
@@ -110,13 +120,13 @@ lv_obj_t *dash_controls_bar_create(lv_obj_t *parent)
 
     lv_obj_t *start_lbl = lv_label_create(start_pill);
     lv_label_set_text(start_lbl, "START");
-    lv_obj_set_style_text_font(start_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(start_lbl, &lv_font_rubik_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(start_lbl, EF_FG, LV_PART_MAIN);
     lv_obj_set_style_text_letter_space(start_lbl, 1, LV_PART_MAIN);
 
     lv_obj_t *menu_lbl = lv_label_create(start_hint);
     lv_label_set_text(menu_lbl, "Menu");
-    lv_obj_set_style_text_font(menu_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(menu_lbl, &lv_font_rubik_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_lbl, EF_FG, LV_PART_MAIN);
 
     return cb_container;

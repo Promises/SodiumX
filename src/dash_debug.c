@@ -75,7 +75,7 @@ void dash_debug_open()
 
     lv_obj_set_style_bg_opa(debug_info_label, LV_OPA_50, 0);
     lv_obj_set_align(debug_info_label, LV_ALIGN_BOTTOM_RIGHT);
-    lv_obj_set_style_text_font(debug_info_label, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(debug_info_label, &lv_font_jetbrains_mono_16, LV_PART_MAIN);
 
     debug_info_timer = lv_timer_create(debug_info_callback, 500, NULL);
     lv_timer_ready(debug_info_timer);
