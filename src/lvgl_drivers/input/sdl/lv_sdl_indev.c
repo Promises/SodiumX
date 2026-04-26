@@ -163,12 +163,13 @@ static void keypad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
     static SDL_Event e;
     if (SDL_PollEvent(&e))
     {
-        if (e.type == SDL_WINDOWEVENT || e.type == SDL_QUIT)
+        if (e.type == SDL_QUIT)
         {
-            if (e.window.event == SDL_WINDOWEVENT_CLOSE)
-            {
-                quit_event = LV_SHUTDOWN;
-            }
+            quit_event = LV_SHUTDOWN;
+        }
+        else if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_CLOSE)
+        {
+            quit_event = LV_SHUTDOWN;
         }
 
         // Handle controller hotplugging

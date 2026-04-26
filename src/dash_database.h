@@ -204,6 +204,7 @@ bool db_open();
 bool db_close();
 bool db_init(char *err_msg, int err_msg_len);
 bool db_rebuild(toml_table_t *paths);
+bool db_rebuild_page(toml_table_t *paths, const char *page_name);
 void db_command_with_callback(const char *command, sqlcmd_callback callback, void *param);
 void db_insert(const char *command, int argc, const char *format, ...);
 void db_insert_blob(const char *command, void *blob, int len);

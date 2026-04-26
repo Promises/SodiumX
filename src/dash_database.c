@@ -274,9 +274,53 @@ bool db_rebuild(toml_table_t *paths)
             }
 
             // Check folder for folders containing "default.xbe"
+            dash_printf(LEVEL_TRACE, "[DB] Scanning page='%s' path='%s'\n", name_str.u.s, path_str.u.s);
             parse_folder(name_str.u.s, path_str.u.s, "default.xbe");
         }
     }
+    return true;
+}
+
+bool db_rebuild_page(toml_table_t *config, const char *page_name)
+{
+    toml_array_t *pages = toml_array_in(config, "pages");
+    int num_pages = pages ? (LV_MIN(toml_array_nelem(pages), DASH_MAX_PAGES)) : 0;
+
+    assert(db);
+    db_rebuild_scanned_items = 0;
+
+    /* Delete existing entries for this page */
+    char cmd[SQL_MAX_COMMAND_LEN];
+    lv_snprintf(cmd, sizeof(cmd), "DELETE FROM %s WHERE %s = \"%s\"",
+                SQL_TITLES_NAME, SQL_TITLE_PAGE, page_name);
+    dash_printf(LEVEL_TRACE, "[DB] Deleting entries for page '%s'\n", page_name);
+    db_command_with_callback(cmd, NULL, NULL);
+
+    /* Create tables if needed */
+    sqlite3_exec(db, SQL_TITLE_CREATE_TABLE, NULL, 0, NULL);
+
+    /* Find and scan only the matching page */
+    for (int page = 0; page < num_pages; page++)
+    {
+        toml_datum_t name_str = toml_string_in(toml_table_at(pages, page), "name");
+        if (!name_str.ok || strcmp(name_str.u.s, page_name) != 0)
+            continue;
+
+        toml_array_t *paths = toml_array_in(toml_table_at(pages, page), "paths");
+        int num_paths = (paths) ? toml_array_nelem(paths) : 0;
+        if (num_paths > DASH_MAX_PATHS_PER_PAGE)
+            num_paths = DASH_MAX_PATHS_PER_PAGE;
+
+        for (int path = 0; path < num_paths; path++)
+        {
+            toml_datum_t path_str = toml_string_at(paths, path);
+            if (!path_str.ok) continue;
+            dash_printf(LEVEL_TRACE, "[DB] Rescan page='%s' path='%s'\n", page_name, path_str.u.s);
+            parse_folder(page_name, path_str.u.s, "default.xbe");
+        }
+        break;
+    }
+    dash_printf(LEVEL_TRACE, "[DB] Rescan complete: %d items found\n", db_rebuild_scanned_items);
     return true;
 }
 
@@ -410,10 +454,14 @@ static void parse_folder(const char *page_title, const char *folderPath, const c
     lv_snprintf(searchPath, sizeof(searchPath), "%s\\*", folderPath);
     clean_path(searchPath);
 
+    dash_printf(LEVEL_TRACE, "[DB] parse_folder: page='%s' path='%s' search='%s'\n",
+                page_title, folderPath, searchPath);
+
     // Find the first file/folder. Leave if folder is empty
     hFind = FindFirstFile(searchPath, &findData);
     if (hFind == INVALID_HANDLE_VALUE)
     {
+        dash_printf(LEVEL_TRACE, "[DB] FindFirstFile FAILED for '%s'\n", searchPath);
         return;
     }
 
@@ -444,7 +492,11 @@ static void parse_folder(const char *page_title, const char *folderPath, const c
         // Check if the file exists and its not a directory
         DWORD fileAttributes = GetFileAttributes(filePath);
         if (fileAttributes == INVALID_FILE_ATTRIBUTES || (fileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            dash_printf(LEVEL_TRACE, "[DB]   skip '%s' (no xbe)\n", findData.cFileName);
             continue;
+        }
+        dash_printf(LEVEL_TRACE, "[DB]   FOUND '%s' -> '%s'\n", findData.cFileName, filePath);
 
         // Check if an xml meta-data file is present by first building the path to it then parsing it
         lv_snprintf(xmlPath, sizeof(xmlPath), "%s\\%s\\_resources\\default.xml",

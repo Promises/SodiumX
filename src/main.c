@@ -2,6 +2,10 @@
 #define NANOPRINTF_SNPRINTF_SAFE_TRIM_STRING_ON_OVERFLOW
 #include <lvgl.h>
 #include "lithiumx.h"
+#ifndef NXDK
+#include <signal.h>
+static void signal_handler(int sig) { (void)sig; lv_set_quit(LV_QUIT_OTHER); }
+#endif
 
 static CRITICAL_SECTION tlsf_crit_sec;
 static tlsf_t mem_pool;
@@ -156,6 +160,11 @@ int main(int argc, char* argv[]) {
     mem_pool = tlsf_create_with_pool(mem_pool_data, sizeof(mem_pool_data));
 
     toml_set_memutil(lx_mem_alloc, lx_mem_free);
+
+    #ifndef NXDK
+    signal(SIGTERM, signal_handler);
+    signal(SIGINT, signal_handler);
+    #endif
 
     dash_printf(LEVEL_TRACE, "Initialising Platform\n");
     platform_init(&w, &h);

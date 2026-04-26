@@ -94,8 +94,8 @@ static void inject_key(int key)
     lv_obj_t *focused = lv_group_get_focused(g);
     if (focused)
     {
-        /* Send press then release */
-        lv_event_send(focused, LV_EVENT_KEY, &key);
+        lv_key_t lv_key = (lv_key_t)key;
+        lv_event_send(focused, LV_EVENT_KEY, &lv_key);
     }
     lvgl_removelock();
 }
