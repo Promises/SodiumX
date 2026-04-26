@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "lithiumx.h"
+#include "dash_prerender.h"
+#include "dash_pill_data.h"
 
 static lv_obj_t *sb_container;
 static lv_obj_t *sb_clock_label;
@@ -8,7 +10,11 @@ static lv_obj_t *sb_temp_chip;
 static lv_obj_t *sb_net_chip;
 static lv_obj_t *sb_clock_chip;
 static lv_obj_t *sb_fps_chip;
+static lv_obj_t *sb_cpu_chip;
+static lv_obj_t *sb_mem_chip;
 static lv_obj_t *sb_fps_label;
+static lv_obj_t *sb_cpu_label;
+static lv_obj_t *sb_mem_label;
 static lv_timer_t *sb_clock_timer;
 
 static uint32_t sb_frame_counter;
@@ -31,26 +37,29 @@ static void clock_timer_cb(lv_timer_t *t)
         lv_label_set_text(sb_clock_label, buf);
     }
 
-    /* Update FPS if visible */
+    /* Update FPS/CPU/MEM if visible */
     if (sb_fps_label)
     {
         uint32_t fps = sb_frame_counter;
         sb_frame_counter = 0;
+        lv_label_set_text_fmt(sb_fps_label, "%d FPS", fps);
+    }
+    if (sb_cpu_label)
+    {
         uint32_t cpu = 100 - lv_timer_get_idle();
-
+        lv_label_set_text_fmt(sb_cpu_label, "%d%% CPU", cpu);
+    }
+    if (sb_mem_label)
+    {
 #ifdef NXDK
-        /* Xbox: show actual system RAM usage */
         extern void get_ram_usage(uint32_t *mem_size, uint32_t *mem_used);
         uint32_t ram_total, ram_used;
         get_ram_usage(&ram_total, &ram_used);
-        lv_label_set_text_fmt(sb_fps_label, "%d FPS  %d%% CPU  %d/%dMB",
-                              fps, cpu, ram_used, ram_total);
+        lv_label_set_text_fmt(sb_mem_label, "%d/%dMB", ram_used, ram_total);
 #else
-        /* Desktop: show LVGL TLSF pool usage */
         uint32_t mem_used, mem_cap;
         lx_mem_usage(&mem_used, &mem_cap);
-        lv_label_set_text_fmt(sb_fps_label, "%d FPS  %d%% CPU  %dkB",
-                              fps, cpu, mem_used / 1024);
+        lv_label_set_text_fmt(sb_mem_label, "%dkB", mem_used / 1024);
 #endif
     }
 }
@@ -61,39 +70,33 @@ static void fps_frame_tick_cb(lv_timer_t *t)
     sb_frame_counter++;
 }
 
-/* Create a status chip pill with text content */
-static lv_obj_t *create_chip(lv_obj_t *parent, const char *text)
+/* Create a status chip using a pre-compiled pill image from dash_pill_data.h.
+ * Returns the chip container (add labels with FLOATING flag to overlay).
+ * If outer_out != NULL, stores the chip for show/hide. */
+static lv_obj_t *create_chip(lv_obj_t *parent, const lv_img_dsc_t *pill_img_dsc,
+                              lv_obj_t **outer_out)
 {
     lv_obj_t *chip = lv_obj_create(parent);
-    lv_obj_add_style(chip, &status_chip_style, LV_PART_MAIN);
-    lv_obj_set_size(chip, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_layout(chip, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(chip, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(chip, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_size(chip, pill_img_dsc->header.w, pill_img_dsc->header.h);
+    lv_obj_set_style_bg_opa(chip, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(chip, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(chip, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(chip, 0, LV_PART_MAIN);
     lv_obj_clear_flag(chip, LV_OBJ_FLAG_SCROLLABLE);
 
-    if (text)
-    {
-        lv_obj_t *lbl = lv_label_create(chip);
-        lv_label_set_text(lbl, text);
-        lv_obj_set_style_text_font(lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
-    }
+    lv_obj_t *img = lv_img_create(chip);
+    lv_img_set_src(img, pill_img_dsc);
+    lv_obj_set_pos(img, 0, 0);
+
+    if (outer_out) *outer_out = chip;
     return chip;
 }
 
-/* Create a small green status dot (6x6) */
+/* Create a small green status dot (6x6, pre-compiled) */
 static lv_obj_t *create_status_dot(lv_obj_t *parent)
 {
-    lv_obj_t *dot = lv_obj_create(parent);
-    lv_obj_set_size(dot, 6, 6);
-    lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(dot, EF_GREEN, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(dot, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(dot, 0, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(dot, 8, LV_PART_MAIN);
-    lv_obj_set_style_shadow_color(dot, EF_GREEN, LV_PART_MAIN);
-    lv_obj_set_style_shadow_opa(dot, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *dot = lv_img_create(parent);
+    lv_img_set_src(dot, &pill_status_dot);
     return dot;
 }
 
@@ -170,12 +173,32 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     lv_obj_set_style_text_color(ver_lbl, EF_FG_MUTED, LV_PART_MAIN);
     lv_obj_set_style_text_opa(ver_lbl, 179, LV_PART_MAIN); /* 70% */
 
-    /* FPS chip (optional) */
-    sb_fps_chip = create_chip(left, NULL);
+    /* FPS chip */
+    sb_fps_chip = create_chip(left, &pill_chip_fps, NULL);
     sb_fps_label = lv_label_create(sb_fps_chip);
-    lv_label_set_text(sb_fps_label, "60 FPS  0% CPU  0kB");
+    lv_label_set_text(sb_fps_label, "-- FPS");
     lv_obj_set_style_text_font(sb_fps_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
     lv_obj_set_style_text_color(sb_fps_label, EF_GREEN, LV_PART_MAIN);
+    lv_obj_add_flag(sb_fps_label, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(sb_fps_label);
+
+    /* CPU chip */
+    sb_cpu_chip = create_chip(left, &pill_chip_cpu, NULL);
+    sb_cpu_label = lv_label_create(sb_cpu_chip);
+    lv_label_set_text(sb_cpu_label, "0% CPU");
+    lv_obj_set_style_text_font(sb_cpu_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(sb_cpu_label, EF_GREEN, LV_PART_MAIN);
+    lv_obj_add_flag(sb_cpu_label, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(sb_cpu_label);
+
+    /* MEM chip */
+    sb_mem_chip = create_chip(left, &pill_chip_mem, NULL);
+    sb_mem_label = lv_label_create(sb_mem_chip);
+    lv_label_set_text(sb_mem_label, "0kB");
+    lv_obj_set_style_text_font(sb_mem_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(sb_mem_label, EF_GREEN, LV_PART_MAIN);
+    lv_obj_add_flag(sb_mem_label, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(sb_mem_label);
 
     /* ── Right group ── */
     lv_obj_t *right = lv_obj_create(sb_container);
@@ -189,25 +212,22 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     lv_obj_set_style_pad_column(right, 8, LV_PART_MAIN);
     lv_obj_clear_flag(right, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Temp chip */
-    sb_temp_chip = create_chip(right, NULL);
-    lv_obj_t *temp_lbl = lv_label_create(sb_temp_chip);
-    lv_label_set_text(temp_lbl, LV_SYMBOL_WARNING " 48" LV_SYMBOL_DUMMY "\xC2\xB0");
-    lv_obj_set_style_text_font(temp_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
+    /* Temp chip — TEMP HIDDEN for debugging */
+    sb_temp_chip = create_chip(right, &pill_chip_temp, NULL);
+    lv_obj_add_flag(sb_temp_chip, LV_OBJ_FLAG_HIDDEN);
 
-    /* Network chip */
-    sb_net_chip = create_chip(right, NULL);
-    create_status_dot(sb_net_chip);
-    lv_obj_t *net_lbl = lv_label_create(sb_net_chip);
-    lv_label_set_text(net_lbl, "FTP");
-    lv_obj_set_style_text_font(net_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(net_lbl, EF_FG_MUTED, LV_PART_MAIN);
+    /* Network chip — TEMP HIDDEN for debugging */
+    sb_net_chip = create_chip(right, &pill_chip_net, NULL);
+    lv_obj_add_flag(sb_net_chip, LV_OBJ_FLAG_HIDDEN);
 
     /* Clock chip */
-    sb_clock_chip = create_chip(right, NULL);
+    sb_clock_chip = create_chip(right, &pill_chip_clock, NULL);
     sb_clock_label = lv_label_create(sb_clock_chip);
     lv_label_set_text(sb_clock_label, "00:00");
     lv_obj_set_style_text_font(sb_clock_label, &lv_font_jetbrains_mono_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(sb_clock_label, EF_FG, LV_PART_MAIN);
+    lv_obj_add_flag(sb_clock_label, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(sb_clock_label);
 
     /* Start timers */
     sb_clock_timer = lv_timer_create(clock_timer_cb, 1000, NULL);
@@ -245,5 +265,15 @@ void dash_statusbar_refresh(void)
     {
         dash_settings.show_fps_overlay ? lv_obj_clear_flag(sb_fps_chip, LV_OBJ_FLAG_HIDDEN)
                                        : lv_obj_add_flag(sb_fps_chip, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (sb_cpu_chip)
+    {
+        dash_settings.show_fps_overlay ? lv_obj_clear_flag(sb_cpu_chip, LV_OBJ_FLAG_HIDDEN)
+                                       : lv_obj_add_flag(sb_cpu_chip, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (sb_mem_chip)
+    {
+        dash_settings.show_fps_overlay ? lv_obj_clear_flag(sb_mem_chip, LV_OBJ_FLAG_HIDDEN)
+                                       : lv_obj_add_flag(sb_mem_chip, LV_OBJ_FLAG_HIDDEN);
     }
 }

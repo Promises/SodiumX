@@ -87,24 +87,24 @@ void dash_prerender_pill(prerender_pill_t *out, int height,
         }
     }
 
-    init_img_dsc(&out->left, radius, height, left_buf, cap_size);
-    init_img_dsc(&out->right, radius, height, right_buf, cap_size);
-
-    /* Middle strip: 1px wide */
+    /* Middle strip: copy from endcap's rightmost column so it matches exactly */
     size_t mid_size = height * 4;
     uint8_t *mid_buf = lv_mem_alloc(mid_size);
     uint32_t *mid = (uint32_t *)mid_buf;
 
     for (int y = 0; y < height; y++)
     {
-        if (y < border_w || y >= height - border_w)
-            mid[y] = BGRA(border_color.ch.red, border_color.ch.green,
-                          border_color.ch.blue, border_opa);
-        else
-            mid[y] = BGRA(bg_color.ch.red, bg_color.ch.green,
-                          bg_color.ch.blue, bg_opa);
+        mid[y] = left[y * radius + (radius - 1)];
     }
 
+    /* Also ensure right endcap's leftmost column matches */
+    for (int y = 0; y < height; y++)
+    {
+        right[y * radius + 0] = mid[y];
+    }
+
+    init_img_dsc(&out->left, radius, height, left_buf, cap_size);
+    init_img_dsc(&out->right, radius, height, right_buf, cap_size);
     init_img_dsc(&out->mid, 1, height, mid_buf, mid_size);
 }
 
