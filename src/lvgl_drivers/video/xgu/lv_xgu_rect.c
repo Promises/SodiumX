@@ -11,7 +11,7 @@ extern uint32_t *p;
 #include <math.h>
 
 /* Number of segments per corner arc. More = smoother, but more GPU vertices. */
-#define CORNER_SEGMENTS 64
+#define CORNER_SEGMENTS 16
 
 
 

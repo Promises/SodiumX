@@ -227,7 +227,8 @@ static void process_command(remote_client_t *client, char *line)
 
     if (strlen(line) == 0) return;
 
-    dash_printf(LEVEL_TRACE, "[REMOTE] cmd: '%s'\n", line);
+    if (strcmp(line, "ping") != 0)
+        dash_printf(LEVEL_TRACE, "[REMOTE] cmd: '%s'\n", line);
 
     if (strncmp(line, "key ", 4) == 0)
     {
@@ -255,6 +256,10 @@ static void process_command(remote_client_t *client, char *line)
     {
         client->log_streaming = false;
         send_str(client->fd, "OK log streaming off\n");
+    }
+    else if (strcmp(line, "ping") == 0)
+    {
+        send_str(client->fd, "pong\n");
     }
     else if (strcmp(line, "status") == 0)
     {
