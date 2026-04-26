@@ -21,6 +21,9 @@ static size_t thumbnail_cache_size = (10 * 1024 * 1024);
 static lv_obj_t *dots_container;
 #define MAX_DOTS 32
 
+/* Empty page label — created once, shown/hidden as needed */
+static lv_obj_t *empty_page_label;
+
 /* Zoom values (256 = 1.0x) */
 /* Tile size scaling factors (percent of DASH_TILE_W/H) */
 #define SIZE_PCT_DEFAULT   75
@@ -601,9 +604,13 @@ static void item_selection_callback(lv_event_t *event)
             }
             return;
         }
+        else if (key == LV_KEY_UP)
+        {
+            dash_tab_bar_enter_nav(page_current);
+            return;
+        }
         else
         {
-            /* Ignore UP/DOWN on horizontal rail */
             return;
         }
 
@@ -903,7 +910,9 @@ static int db_scan_thread_f(void *param)
 
     if (p->scroller == rail && child_cnt > 1)
     {
-        /* Active page got content — focus the first tile */
+        /* Active page got content — hide empty label and focus first tile */
+        if (empty_page_label)
+            lv_obj_add_flag(empty_page_label, LV_OBJ_FLAG_HIDDEN);
         selected_index = 1;
         lv_obj_t *first_tile = lv_obj_get_child(p->scroller, 1);
         dash_focus_set_final(lv_obj_get_child(p->scroller, 0));
@@ -1040,11 +1049,25 @@ void dash_scroller_set_page()
     {
         selected_index = 0;
         dash_printf(LEVEL_TRACE, "[PAGE] No items (only null item), selected_index=0\n");
+
+        /* Show empty page message */
+        if (!empty_page_label)
+        {
+            empty_page_label = lv_label_create(rail_wrap);
+            lv_obj_set_style_text_font(empty_page_label, &lv_font_rubik_16, LV_PART_MAIN);
+            lv_obj_set_style_text_color(empty_page_label, EF_FG_MUTED, LV_PART_MAIN);
+            lv_obj_center(empty_page_label);
+        }
+        lv_label_set_text_fmt(empty_page_label, "No content in %s", parsers[page_current]->page_title);
+        lv_obj_clear_flag(empty_page_label, LV_OBJ_FLAG_HIDDEN);
     }
     else
     {
         selected_index = LV_CLAMP(1, selected_index, child_cnt - 1);
         dash_printf(LEVEL_TRACE, "[PAGE] Has %d items, selected_index=%d\n", child_cnt - 1, selected_index);
+        /* Hide empty label if visible */
+        if (empty_page_label)
+            lv_obj_add_flag(empty_page_label, LV_OBJ_FLAG_HIDDEN);
     }
 
     /* Show only the active page's scroller, hide others */
@@ -1064,16 +1087,19 @@ void dash_scroller_set_page()
     /* Position the rail and set initial focus */
     rail_update_focus(false);
 
-    /* Always set up focus — even on the null item so keys (START, etc.) work */
-    dash_focus_set_final(lv_obj_get_child(rail, 0));
-    if (child_cnt > 1)
+    /* Don't steal focus when tab bar navigation is active */
+    if (!dash_tab_nav_is_active())
     {
-        lv_obj_t *focus_item = lv_obj_get_child(rail, selected_index);
-        dash_focus_change(focus_item);
-    }
-    else
-    {
-        dash_focus_change(lv_obj_get_child(rail, 0));
+        dash_focus_set_final(lv_obj_get_child(rail, 0));
+        if (child_cnt > 1)
+        {
+            lv_obj_t *focus_item = lv_obj_get_child(rail, selected_index);
+            dash_focus_change(focus_item);
+        }
+        else
+        {
+            dash_focus_change(lv_obj_get_child(rail, 0));
+        }
     }
 }
 
@@ -1191,6 +1217,24 @@ void dash_scroller_scan_db()
     {
         rail = parsers[page_current]->scroller;
     }
+}
+
+void dash_scroller_clear_empty_label(void)
+{
+    if (empty_page_label)
+        lv_obj_add_flag(empty_page_label, LV_OBJ_FLAG_HIDDEN);
+}
+
+void dash_scroller_set_page_index(int index)
+{
+    int page_count = dash_scroller_get_page_count();
+    if (index < 0 || index >= page_count) return;
+    page_current = index;
+    selected_index = 1;
+    dash_scroller_set_page();
+    dash_scroller_sync_tab();
+    dash_update_meta("", "");
+    dash_update_hero_counter(0, 0);
 }
 
 const char *dash_scroller_get_title(int index)

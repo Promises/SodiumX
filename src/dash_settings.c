@@ -127,6 +127,48 @@ static lv_obj_t *create_toggle(lv_obj_t *parent, bool *value)
     return track;
 }
 
+/* ── Cycle widget (shows "< value >" text, cycled via LEFT/RIGHT keys) ── */
+typedef struct {
+    int *value;
+    int count;
+    lv_obj_t *label;
+    const char *(*get_name)(int index); /* callback to get display name */
+} cycle_data_t;
+
+static cycle_data_t *active_cycle = NULL;
+
+static void cycle_update_label(cycle_data_t *cd)
+{
+    const char *name = cd->get_name(*cd->value);
+    if (name)
+        lv_label_set_text_fmt(cd->label, LV_SYMBOL_LEFT "  %s  " LV_SYMBOL_RIGHT, name);
+    else
+        lv_label_set_text(cd->label, "?");
+}
+
+static lv_obj_t *create_cycle(lv_obj_t *parent, int *value, int count,
+                               const char *(*get_name)(int index))
+{
+    cycle_data_t *cd = lv_mem_alloc(sizeof(cycle_data_t));
+    cd->value = value;
+    cd->count = count;
+    cd->get_name = get_name;
+
+    lv_obj_t *lbl = lv_label_create(parent);
+    lv_obj_set_style_text_font(lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
+    cd->label = lbl;
+
+    /* Clamp value to valid range */
+    if (*value >= count) *value = 0;
+    if (*value < 0) *value = 0;
+    cycle_update_label(cd);
+
+    lbl->user_data = cd;
+    active_cycle = cd;
+    return lbl;
+}
+
 /* ── Setting row ── */
 static lv_obj_t *create_setting_row(lv_obj_t *parent, const char *label_text,
                                      const char *desc_text, bool first)
@@ -250,7 +292,11 @@ static void build_system_section(lv_obj_t *body)
     lv_label_set_text(sub, "Dashboard behavior.");
     lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
 
-    lv_obj_t *r1 = create_setting_row(body, "Show FPS overlay", "Developer readout in status bar.", true);
+    lv_obj_t *r0 = create_setting_row(body, "Default page", "Page shown on startup.", true);
+    create_cycle(r0, &dash_settings.startup_page_index, dash_scroller_get_page_count(),
+                 dash_scroller_get_title);
+
+    lv_obj_t *r1 = create_setting_row(body, "Show FPS overlay", "Developer readout in status bar.", false);
     create_toggle(r1, &dash_settings.show_fps_overlay);
 
     lv_obj_t *r2 = create_setting_row(body, "Controller hints", "Bottom bar A/B/X/Y prompts.", false);
@@ -306,6 +352,7 @@ static const section_builder_t section_builders[] = {
 static void rebuild_body(void)
 {
     if (!panel_body) return;
+    active_cycle = NULL; /* reset before rebuilding — only System section sets it */
     lv_obj_clean(panel_body);
     if (active_section >= 0 && active_section < SECT_COUNT)
     {
@@ -338,6 +385,11 @@ static void settings_key_handler(lv_event_t *event)
         dash_settings_apply(false);
         dash_statusbar_refresh();
 
+        if (active_cycle)
+        {
+            lv_mem_free(active_cycle);
+            active_cycle = NULL;
+        }
         if (settings_overlay)
         {
             lv_obj_del(settings_overlay);
@@ -359,6 +411,18 @@ static void settings_key_handler(lv_event_t *event)
         active_section = (active_section + 1) % SECT_COUNT;
         update_nav_highlight();
         rebuild_body();
+    }
+    else if (key == LV_KEY_LEFT && active_cycle)
+    {
+        int *v = active_cycle->value;
+        *v = (*v - 1 + active_cycle->count) % active_cycle->count;
+        cycle_update_label(active_cycle);
+    }
+    else if (key == LV_KEY_RIGHT && active_cycle)
+    {
+        int *v = active_cycle->value;
+        *v = (*v + 1) % active_cycle->count;
+        cycle_update_label(active_cycle);
     }
 }
 

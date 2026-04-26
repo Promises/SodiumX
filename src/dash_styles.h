@@ -87,6 +87,7 @@ extern lv_style_t status_chip_style;
 /* Tab bar */
 extern lv_style_t tab_active_style;
 extern lv_style_t tab_inactive_style;
+extern lv_style_t tab_focused_style;
 
 /* Horizontal rail tiles */
 extern lv_style_t rail_tile_style;

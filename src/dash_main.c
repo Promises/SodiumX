@@ -249,6 +249,12 @@ static int current_tab = 0;
 static const char *tab_names[] = {"Home", "Recently Played", "Apps", "Files", "System"};
 #define TAB_COUNT 5
 
+/* Tab navigation mode state */
+static bool tab_nav_active = false;
+static int tab_nav_origin_page = -1;
+static int tab_nav_origin_tab = 0;
+static lv_obj_t *tab_nav_focus_obj; /* invisible focusable for tab key events */
+
 /* Hero strip + meta row labels (updated by scroller on focus change) */
 static lv_obj_t *hero_eyebrow;
 static lv_obj_t *hero_counter;
@@ -298,18 +304,14 @@ static void tab_bar_update(void)
 {
     for (int i = 0; i < TAB_COUNT; i++)
     {
-        /* Remove all styles first, then apply the correct one */
         lv_obj_remove_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
         lv_obj_remove_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+        lv_obj_remove_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
 
         if (i == current_tab)
-        {
             lv_obj_add_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
-        }
         else
-        {
             lv_obj_add_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
-        }
     }
 }
 
@@ -322,28 +324,161 @@ void dash_set_tab(int tab_index)
     /* Update hero strip text */
     const char *eyebrow_texts[] = {"YOUR LIBRARY", "RECENTLY PLAYED", "APPS & HOMEBREW", "BROWSER", "SYSTEM"};
     if (hero_eyebrow)
-    {
         lv_label_set_text(hero_eyebrow, eyebrow_texts[current_tab]);
-    }
 
     /* Update controls bar context */
     if (current_tab == 3) /* Files */
-    {
         dash_controls_bar_set_context("Open", "Back", "Info", "Sort");
-    }
     else if (current_tab == 4) /* System */
-    {
         dash_controls_bar_set_context("-", "Back", "Refresh", "Export");
-    }
     else
-    {
         dash_controls_bar_set_context("Launch", "Back", "Details", "Sort");
-    }
 }
 
 int dash_get_tab(void)
 {
     return current_tab;
+}
+
+bool dash_tab_nav_is_active(void)
+{
+    return tab_nav_active;
+}
+
+/* ── Tab bar navigation mode ── */
+
+static void tab_bar_update_nav(int highlighted_tab)
+{
+    for (int i = 0; i < TAB_COUNT; i++)
+    {
+        lv_obj_remove_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
+        lv_obj_remove_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+        lv_obj_remove_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
+
+        if (i == highlighted_tab)
+            lv_obj_add_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
+        else
+            lv_obj_add_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+    }
+}
+
+/* Find the first TOML page that maps to a given tab index, or -1 */
+static int page_for_tab(int tab_index)
+{
+    int page_count = dash_scroller_get_page_count();
+    for (int i = 0; i < page_count; i++)
+    {
+        const char *title = dash_scroller_get_title(i);
+        if (!title) continue;
+        int tab = -1;
+        if (strcmp(title, "Recent") == 0)            tab = 1;
+        else if (strcmp(title, "Applications") == 0)  tab = 2;
+        else if (strcmp(title, "Homebrew") == 0)      tab = 2;
+        else if (strcmp(title, "Apps") == 0)          tab = 2;
+        else                                          tab = 0;
+        if (tab == tab_index) return i;
+    }
+    return -1;
+}
+
+static void tab_nav_activate_tab(int tab_index)
+{
+    current_tab = tab_index;
+    tab_bar_update_nav(current_tab);
+
+    /* Switch scroller page if this tab has one */
+    int page = page_for_tab(tab_index);
+    if (page >= 0)
+    {
+        dash_scroller_set_page_index(page);
+    }
+    else
+    {
+        /* Tab has no page (Files/System) — clear empty label if visible */
+        dash_scroller_clear_empty_label();
+    }
+
+    /* Update hero eyebrow */
+    const char *eyebrow_texts[] = {"YOUR LIBRARY", "RECENTLY PLAYED", "APPS & HOMEBREW", "BROWSER", "SYSTEM"};
+    if (hero_eyebrow)
+        lv_label_set_text(hero_eyebrow, eyebrow_texts[current_tab]);
+}
+
+static void tab_nav_key_handler(lv_event_t *event)
+{
+    lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
+
+    if (key == LV_KEY_LEFT || key == DASH_PREV_PAGE)
+    {
+        if (current_tab > 0)
+            tab_nav_activate_tab(current_tab - 1);
+    }
+    else if (key == LV_KEY_RIGHT || key == DASH_NEXT_PAGE)
+    {
+        if (current_tab < TAB_COUNT - 1)
+            tab_nav_activate_tab(current_tab + 1);
+    }
+    else if (key == LV_KEY_ENTER || key == LV_KEY_DOWN)
+    {
+        /* Confirm — exit tab nav, stay on current tab/page */
+        dash_tab_bar_exit_nav(false);
+    }
+    else if (key == LV_KEY_ESC)
+    {
+        /* Cancel — restore original tab/page */
+        dash_tab_bar_exit_nav(true);
+    }
+}
+
+void dash_tab_bar_enter_nav(int current_page)
+{
+    tab_nav_active = true;
+    tab_nav_origin_page = current_page;
+    tab_nav_origin_tab = current_tab;
+
+    /* Create an invisible focusable object for key events */
+    tab_nav_focus_obj = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(tab_nav_focus_obj, 0, 0);
+    lv_obj_add_flag(tab_nav_focus_obj, LV_OBJ_FLAG_HIDDEN);
+    lv_group_add_obj(lv_group_get_default(), tab_nav_focus_obj);
+    lv_obj_add_event_cb(tab_nav_focus_obj, tab_nav_key_handler, LV_EVENT_KEY, NULL);
+
+    /* Highlight current tab with focused style */
+    tab_bar_update_nav(current_tab);
+
+    /* Push focus depth so B returns here */
+    dash_focus_change_depth(tab_nav_focus_obj);
+}
+
+void dash_tab_bar_exit_nav(bool cancel)
+{
+    if (!tab_nav_active) return;
+    tab_nav_active = false;
+
+    if (cancel)
+    {
+        /* Restore original tab and page */
+        current_tab = tab_nav_origin_tab;
+    }
+
+    /* Delete the nav focus object first */
+    if (tab_nav_focus_obj)
+    {
+        lv_obj_del(tab_nav_focus_obj);
+        tab_nav_focus_obj = NULL;
+    }
+    /* Discard the stale focus stack entry (don't pop to a potentially wrong tile) */
+    if (focus_stack_index > 0) focus_stack_index--;
+
+    /* Restore normal tab styling */
+    tab_bar_update();
+
+    /* Re-set the correct page so focus lands on a valid, visible tile */
+    int target_page = cancel ? tab_nav_origin_page : page_for_tab(current_tab);
+    if (target_page >= 0)
+        dash_scroller_set_page_index(target_page);
+    else if (tab_nav_origin_page >= 0)
+        dash_scroller_set_page_index(tab_nav_origin_page);
 }
 
 /* Update the meta row with title info */

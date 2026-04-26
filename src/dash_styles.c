@@ -26,6 +26,7 @@ lv_style_t status_bar_style;
 lv_style_t status_chip_style;
 lv_style_t tab_active_style;
 lv_style_t tab_inactive_style;
+lv_style_t tab_focused_style;
 lv_style_t rail_tile_style;
 lv_style_t rail_tile_focused_style;
 lv_style_t controls_bar_style;
@@ -208,6 +209,21 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_pad_bottom(&tab_inactive_style, 8);
     lv_style_set_text_color(&tab_inactive_style, EF_FG_MUTED);
     lv_style_set_text_font(&tab_inactive_style, &lv_font_rubik_14);
+
+    /* Focused tab (during tab navigation): same as active but brighter */
+    lv_style_init(&tab_focused_style);
+    lv_style_set_bg_color(&tab_focused_style, dash_accent_color);
+    lv_style_set_bg_opa(&tab_focused_style, 51); /* ~20% */
+    lv_style_set_border_width(&tab_focused_style, 1);
+    lv_style_set_border_color(&tab_focused_style, dash_accent_color);
+    lv_style_set_border_opa(&tab_focused_style, 128); /* ~50% */
+    lv_style_set_radius(&tab_focused_style, LV_RADIUS_CIRCLE);
+    lv_style_set_pad_left(&tab_focused_style, 18);
+    lv_style_set_pad_right(&tab_focused_style, 18);
+    lv_style_set_pad_top(&tab_focused_style, 8);
+    lv_style_set_pad_bottom(&tab_focused_style, 8);
+    lv_style_set_text_color(&tab_focused_style, EF_FG);
+    lv_style_set_text_font(&tab_focused_style, &lv_font_rubik_14);
 
     /* ── Horizontal rail tiles ── */
 
@@ -538,6 +554,7 @@ void dash_styles_deinit(void)
     lv_style_reset(&status_chip_style);
     lv_style_reset(&tab_active_style);
     lv_style_reset(&tab_inactive_style);
+    lv_style_reset(&tab_focused_style);
     lv_style_reset(&rail_tile_style);
     lv_style_reset(&rail_tile_focused_style);
     lv_style_reset(&controls_bar_style);

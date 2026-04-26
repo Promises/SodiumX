@@ -19,10 +19,13 @@ extern "C" {
 void dash_scroller_init(void);
 void dash_scroller_scan_db(void);
 void dash_scroller_set_page(void);
+void dash_scroller_set_page_index(int index);
+void dash_scroller_clear_empty_label(void);
 const char *dash_scroller_get_title(int index);
 bool dash_scroller_get_sort_value(const char *page_title, int *sort_value);
 void dash_scroller_resort_page(const char *page_title);
 void dash_scroller_clear_page(const char *page_title);
+void dash_scroller_rescan_page(const char *page_title);
 int dash_scroller_get_page_count();
 #ifdef __cplusplus
 }
