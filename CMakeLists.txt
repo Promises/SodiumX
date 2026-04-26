@@ -72,6 +72,7 @@ set(SOURCES
     src/dash_sysinfo.c
     src/dash_remote.c
     src/dash_backdrop.c
+    src/dash_prerender.c
     src/fonts/lv_font_rubik_10.c
     src/fonts/lv_font_rubik_12.c
     src/fonts/lv_font_rubik_14.c

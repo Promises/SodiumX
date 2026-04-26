@@ -27,6 +27,7 @@ SRCS += \
     $(CURDIR)/src/dash_sysinfo.c \
     $(CURDIR)/src/dash_remote.c \
     $(CURDIR)/src/dash_backdrop.c \
+    $(CURDIR)/src/dash_prerender.c \
     $(CURDIR)/src/main.c \
     $(CURDIR)/src/lvgl_widgets/confirmbox.c \
     $(CURDIR)/src/lvgl_widgets/generic_container.c \

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
 #include "lithiumx.h"
+#include "dash_prerender.h"
 
 // Globals
 toml_table_t *dash_search_paths;
@@ -255,138 +256,7 @@ static int pill_radius;
 
 typedef enum { PILL_ACTIVE = 0, PILL_FOCUSED, PILL_INACTIVE, PILL_STATE_COUNT } pill_state_t;
 
-/* Each endcap is pill_radius × pill_height pixels, ARGB8888 */
-static uint8_t *pill_left_buf[PILL_STATE_COUNT];
-static lv_img_dsc_t pill_left_dsc[PILL_STATE_COUNT];
-static uint8_t *pill_right_buf[PILL_STATE_COUNT];
-static lv_img_dsc_t pill_right_dsc[PILL_STATE_COUNT];
-/* Middle strip: 1px wide × pill_height, tiled horizontally */
-static uint8_t *pill_mid_buf[PILL_STATE_COUNT];
-static lv_img_dsc_t pill_mid_dsc[PILL_STATE_COUNT];
-
-static void pill_render_endcaps(void)
-{
-    /* Compute pill dimensions from font metrics */
-    pill_height = lv_font_rubik_14.line_height + PILL_PAD_V * 2;
-    pill_radius = pill_height / 2;
-
-    size_t buf_size = pill_radius * pill_height * 4;
-
-    /* Render left endcaps for active and focused states */
-    struct {
-        lv_color_t bg_color;
-        uint8_t bg_opa;
-        lv_color_t border_color;
-        uint8_t border_opa;
-    } states[PILL_STATE_COUNT] = {
-        { dash_accent_color, 31,  dash_accent_color, 77 },   /* active */
-        { dash_accent_color, 51,  dash_accent_color, 128 },  /* focused */
-        { lv_color_black(),   0,  lv_color_black(),   0 },   /* inactive — fully transparent */
-    };
-
-    for (int s = 0; s < PILL_STATE_COUNT; s++)
-    {
-        pill_left_buf[s] = lv_mem_alloc(buf_size);
-        pill_right_buf[s] = lv_mem_alloc(buf_size);
-        uint32_t *left = (uint32_t *)pill_left_buf[s];
-        uint32_t *right = (uint32_t *)pill_right_buf[s];
-        lv_memset(pill_left_buf[s], 0, buf_size);
-        lv_memset(pill_right_buf[s], 0, buf_size);
-
-        lv_color_t bg = states[s].bg_color;
-        uint8_t bg_a = states[s].bg_opa;
-        lv_color_t bc = states[s].border_color;
-        uint8_t bc_a = states[s].border_opa;
-
-        float cy = ((float)pill_height - 1.0f) / 2.0f;  /* center y = middle */
-        float r_outer = (float)pill_height / 2.0f;     /* outer radius */
-        float r_inner = r_outer - PILL_BORDER;     /* inner radius */
-
-        for (int y = 0; y < pill_height; y++)
-        {
-            for (int x = 0; x < pill_radius; x++)
-            {
-                float dx = (float)x - (float)pill_radius + 0.5f;
-                float dy = (float)y - cy;
-                float dist = sqrtf(dx * dx + dy * dy);
-
-                /* BGRA pixel (matches lv_color_t layout on little-endian) */
-                #define BGRA(r, g, b, a) ((uint32_t)(b) | ((uint32_t)(g) << 8) | \
-                                         ((uint32_t)(r) << 16) | ((uint32_t)(a) << 24))
-                uint32_t pixel = 0;
-
-                if (dist <= r_inner - 0.5f)
-                {
-                    pixel = BGRA(bg.ch.red, bg.ch.green, bg.ch.blue, bg_a);
-                }
-                else if (dist <= r_inner + 0.5f)
-                {
-                    float fill_cov = LV_CLAMP(0.0f, r_inner + 0.5f - dist, 1.0f);
-                    float border_cov = 1.0f - fill_cov;
-                    uint8_t a = (uint8_t)(fill_cov * bg_a + border_cov * bc_a);
-                    uint8_t r = (uint8_t)(fill_cov * bg.ch.red + border_cov * bc.ch.red);
-                    uint8_t g = (uint8_t)(fill_cov * bg.ch.green + border_cov * bc.ch.green);
-                    uint8_t b = (uint8_t)(fill_cov * bg.ch.blue + border_cov * bc.ch.blue);
-                    pixel = BGRA(r, g, b, a);
-                }
-                else if (dist <= r_outer - 0.5f)
-                {
-                    pixel = BGRA(bc.ch.red, bc.ch.green, bc.ch.blue, bc_a);
-                }
-                else if (dist <= r_outer + 0.5f)
-                {
-                    float cov = LV_CLAMP(0.0f, r_outer + 0.5f - dist, 1.0f);
-                    uint8_t a = (uint8_t)(cov * bc_a);
-                    pixel = BGRA(bc.ch.red, bc.ch.green, bc.ch.blue, a);
-                }
-                #undef BGRA
-
-                /* For the right half (x >= PILL_RADIUS means past center),
-                 * fill is just the straight part — no curve */
-                left[y * pill_radius + x] = pixel;
-                /* Mirror horizontally for right endcap */
-                right[y * pill_radius + (pill_radius - 1 - x)] = pixel;
-            }
-        }
-
-        /* Set up LVGL image descriptors */
-        pill_left_dsc[s].header.always_zero = 0;
-        pill_left_dsc[s].header.w = pill_radius;
-        pill_left_dsc[s].header.h = pill_height;
-        pill_left_dsc[s].header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
-        pill_left_dsc[s].data_size = buf_size;
-        pill_left_dsc[s].data = pill_left_buf[s];
-
-        pill_right_dsc[s].header.always_zero = 0;
-        pill_right_dsc[s].header.w = pill_radius;
-        pill_right_dsc[s].header.h = pill_height;
-        pill_right_dsc[s].header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
-        pill_right_dsc[s].data_size = buf_size;
-        pill_right_dsc[s].data = pill_right_buf[s];
-
-        /* Middle strip: 1px wide column with border top/bottom, fill in between */
-        size_t mid_size = 1 * pill_height * 4;
-        pill_mid_buf[s] = lv_mem_alloc(mid_size);
-        uint32_t *mid = (uint32_t *)pill_mid_buf[s];
-        #define BGRA_M(r, g, b, a) ((uint32_t)(b) | ((uint32_t)(g) << 8) | \
-                                    ((uint32_t)(r) << 16) | ((uint32_t)(a) << 24))
-        for (int y = 0; y < pill_height; y++)
-        {
-            if (y < PILL_BORDER || y >= pill_height - PILL_BORDER)
-                mid[y] = BGRA_M(bc.ch.red, bc.ch.green, bc.ch.blue, bc_a);
-            else
-                mid[y] = BGRA_M(bg.ch.red, bg.ch.green, bg.ch.blue, bg_a);
-        }
-        #undef BGRA_M
-
-        pill_mid_dsc[s].header.always_zero = 0;
-        pill_mid_dsc[s].header.w = 1;
-        pill_mid_dsc[s].header.h = pill_height;
-        pill_mid_dsc[s].header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
-        pill_mid_dsc[s].data_size = mid_size;
-        pill_mid_dsc[s].data = pill_mid_buf[s];
-    }
-}
+static prerender_pill_t tab_pills[PILL_STATE_COUNT];
 
 /* ── Tab bar state ── */
 static lv_obj_t *tab_bar;
@@ -457,7 +327,13 @@ static void tab_bar_create_3slice(lv_obj_t *bar)
         lv_obj_del(tmp);
     }
 
-    pill_render_endcaps();
+    /* Pre-render pills for all 3 states */
+    dash_prerender_pill(&tab_pills[PILL_ACTIVE], pill_height, PILL_BORDER,
+                        dash_accent_color, 31, dash_accent_color, 77);
+    dash_prerender_pill(&tab_pills[PILL_FOCUSED], pill_height, PILL_BORDER,
+                        dash_accent_color, 51, dash_accent_color, 128);
+    dash_prerender_pill(&tab_pills[PILL_INACTIVE], pill_height, 0,
+                        lv_color_black(), 0, lv_color_black(), 0);
 
     for (int i = 0; i < TAB_COUNT; i++)
     {
@@ -474,7 +350,7 @@ static void tab_bar_create_3slice(lv_obj_t *bar)
         lv_obj_set_style_pad_column(pill, 0, LV_PART_MAIN);
 
         lv_obj_t *left_cap = lv_img_create(pill);
-        lv_img_set_src(left_cap, &pill_left_dsc[PILL_ACTIVE]);
+        lv_img_set_src(left_cap, &tab_pills[PILL_ACTIVE].left);
 
         /* Measure text to compute middle width */
         lv_point_t txt_size;
@@ -506,7 +382,7 @@ static void tab_bar_create_3slice(lv_obj_t *bar)
         lv_obj_center(lbl);
 
         lv_obj_t *right_cap = lv_img_create(pill);
-        lv_img_set_src(right_cap, &pill_right_dsc[PILL_ACTIVE]);
+        lv_img_set_src(right_cap, &tab_pills[PILL_ACTIVE].right);
 
         tab_objs[i] = pill;
         tab_left_caps[i] = left_cap;
@@ -543,17 +419,7 @@ static void tab_bar_create(lv_obj_t *parent)
 
 static void tab_pill_fill_middle(int i, pill_state_t ps)
 {
-    /* Tile the 1px-wide pre-rendered strip across the middle canvas */
-    uint32_t *strip = (uint32_t *)pill_mid_buf[ps];
-    uint32_t *dst = (uint32_t *)tab_mid_mem[i];
-    lv_coord_t w = tab_mid_w[i];
-    for (int y = 0; y < pill_height; y++)
-    {
-        uint32_t pixel = strip[y];
-        for (int x = 0; x < w; x++)
-            dst[y * w + x] = pixel;
-    }
-    /* Invalidate canvas so LVGL redraws it */
+    dash_prerender_tile_middle(tab_mid_mem[i], tab_mid_w[i], pill_height, &tab_pills[ps]);
     lv_obj_invalidate(tab_middles[i]);
 }
 
@@ -573,8 +439,8 @@ static void tab_pill_set_state(int i, int state)
 #else
     if (state < 0)
     {
-        lv_img_set_src(tab_left_caps[i], &pill_left_dsc[PILL_INACTIVE]);
-        lv_img_set_src(tab_right_caps[i], &pill_right_dsc[PILL_INACTIVE]);
+        lv_img_set_src(tab_left_caps[i], &tab_pills[PILL_INACTIVE].left);
+        lv_img_set_src(tab_right_caps[i], &tab_pills[PILL_INACTIVE].right);
         lv_obj_clear_flag(tab_left_caps[i], LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(tab_right_caps[i], LV_OBJ_FLAG_HIDDEN);
         tab_pill_fill_middle(i, PILL_INACTIVE);
@@ -586,8 +452,8 @@ static void tab_pill_set_state(int i, int state)
 
         lv_obj_clear_flag(tab_left_caps[i], LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(tab_right_caps[i], LV_OBJ_FLAG_HIDDEN);
-        lv_img_set_src(tab_left_caps[i], &pill_left_dsc[ps]);
-        lv_img_set_src(tab_right_caps[i], &pill_right_dsc[ps]);
+        lv_img_set_src(tab_left_caps[i], &tab_pills[ps].left);
+        lv_img_set_src(tab_right_caps[i], &tab_pills[ps].right);
 
         tab_pill_fill_middle(i, ps);
 
