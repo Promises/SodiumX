@@ -242,9 +242,162 @@ void dash_init(void)
 }
 
 
+/* ── Pre-rendered pill endcaps ── */
+#define PILL_PAD_V    8   /* pad_top and pad_bottom */
+#define PILL_BORDER   1
+
+/* Set to true to use old GPU-rendered pills instead of pre-rendered textures */
+#define USE_OLD_STYLE_PILLS 0
+
+/* Computed at init from font metrics */
+static int pill_height;
+static int pill_radius;
+
+typedef enum { PILL_ACTIVE = 0, PILL_FOCUSED, PILL_INACTIVE, PILL_STATE_COUNT } pill_state_t;
+
+/* Each endcap is pill_radius × pill_height pixels, ARGB8888 */
+static uint8_t *pill_left_buf[PILL_STATE_COUNT];
+static lv_img_dsc_t pill_left_dsc[PILL_STATE_COUNT];
+static uint8_t *pill_right_buf[PILL_STATE_COUNT];
+static lv_img_dsc_t pill_right_dsc[PILL_STATE_COUNT];
+/* Middle strip: 1px wide × pill_height, tiled horizontally */
+static uint8_t *pill_mid_buf[PILL_STATE_COUNT];
+static lv_img_dsc_t pill_mid_dsc[PILL_STATE_COUNT];
+
+static void pill_render_endcaps(void)
+{
+    /* Compute pill dimensions from font metrics */
+    pill_height = lv_font_rubik_14.line_height + PILL_PAD_V * 2;
+    pill_radius = pill_height / 2;
+
+    size_t buf_size = pill_radius * pill_height * 4;
+
+    /* Render left endcaps for active and focused states */
+    struct {
+        lv_color_t bg_color;
+        uint8_t bg_opa;
+        lv_color_t border_color;
+        uint8_t border_opa;
+    } states[PILL_STATE_COUNT] = {
+        { dash_accent_color, 31,  dash_accent_color, 77 },   /* active */
+        { dash_accent_color, 51,  dash_accent_color, 128 },  /* focused */
+        { lv_color_black(),   0,  lv_color_black(),   0 },   /* inactive — fully transparent */
+    };
+
+    for (int s = 0; s < PILL_STATE_COUNT; s++)
+    {
+        pill_left_buf[s] = lv_mem_alloc(buf_size);
+        pill_right_buf[s] = lv_mem_alloc(buf_size);
+        uint32_t *left = (uint32_t *)pill_left_buf[s];
+        uint32_t *right = (uint32_t *)pill_right_buf[s];
+        lv_memset(pill_left_buf[s], 0, buf_size);
+        lv_memset(pill_right_buf[s], 0, buf_size);
+
+        lv_color_t bg = states[s].bg_color;
+        uint8_t bg_a = states[s].bg_opa;
+        lv_color_t bc = states[s].border_color;
+        uint8_t bc_a = states[s].border_opa;
+
+        float cy = ((float)pill_height - 1.0f) / 2.0f;  /* center y = middle */
+        float r_outer = (float)pill_height / 2.0f;     /* outer radius */
+        float r_inner = r_outer - PILL_BORDER;     /* inner radius */
+
+        for (int y = 0; y < pill_height; y++)
+        {
+            for (int x = 0; x < pill_radius; x++)
+            {
+                float dx = (float)x - (float)pill_radius + 0.5f;
+                float dy = (float)y - cy;
+                float dist = sqrtf(dx * dx + dy * dy);
+
+                /* BGRA pixel (matches lv_color_t layout on little-endian) */
+                #define BGRA(r, g, b, a) ((uint32_t)(b) | ((uint32_t)(g) << 8) | \
+                                         ((uint32_t)(r) << 16) | ((uint32_t)(a) << 24))
+                uint32_t pixel = 0;
+
+                if (dist <= r_inner - 0.5f)
+                {
+                    pixel = BGRA(bg.ch.red, bg.ch.green, bg.ch.blue, bg_a);
+                }
+                else if (dist <= r_inner + 0.5f)
+                {
+                    float fill_cov = LV_CLAMP(0.0f, r_inner + 0.5f - dist, 1.0f);
+                    float border_cov = 1.0f - fill_cov;
+                    uint8_t a = (uint8_t)(fill_cov * bg_a + border_cov * bc_a);
+                    uint8_t r = (uint8_t)(fill_cov * bg.ch.red + border_cov * bc.ch.red);
+                    uint8_t g = (uint8_t)(fill_cov * bg.ch.green + border_cov * bc.ch.green);
+                    uint8_t b = (uint8_t)(fill_cov * bg.ch.blue + border_cov * bc.ch.blue);
+                    pixel = BGRA(r, g, b, a);
+                }
+                else if (dist <= r_outer - 0.5f)
+                {
+                    pixel = BGRA(bc.ch.red, bc.ch.green, bc.ch.blue, bc_a);
+                }
+                else if (dist <= r_outer + 0.5f)
+                {
+                    float cov = LV_CLAMP(0.0f, r_outer + 0.5f - dist, 1.0f);
+                    uint8_t a = (uint8_t)(cov * bc_a);
+                    pixel = BGRA(bc.ch.red, bc.ch.green, bc.ch.blue, a);
+                }
+                #undef BGRA
+
+                /* For the right half (x >= PILL_RADIUS means past center),
+                 * fill is just the straight part — no curve */
+                left[y * pill_radius + x] = pixel;
+                /* Mirror horizontally for right endcap */
+                right[y * pill_radius + (pill_radius - 1 - x)] = pixel;
+            }
+        }
+
+        /* Set up LVGL image descriptors */
+        pill_left_dsc[s].header.always_zero = 0;
+        pill_left_dsc[s].header.w = pill_radius;
+        pill_left_dsc[s].header.h = pill_height;
+        pill_left_dsc[s].header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+        pill_left_dsc[s].data_size = buf_size;
+        pill_left_dsc[s].data = pill_left_buf[s];
+
+        pill_right_dsc[s].header.always_zero = 0;
+        pill_right_dsc[s].header.w = pill_radius;
+        pill_right_dsc[s].header.h = pill_height;
+        pill_right_dsc[s].header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+        pill_right_dsc[s].data_size = buf_size;
+        pill_right_dsc[s].data = pill_right_buf[s];
+
+        /* Middle strip: 1px wide column with border top/bottom, fill in between */
+        size_t mid_size = 1 * pill_height * 4;
+        pill_mid_buf[s] = lv_mem_alloc(mid_size);
+        uint32_t *mid = (uint32_t *)pill_mid_buf[s];
+        #define BGRA_M(r, g, b, a) ((uint32_t)(b) | ((uint32_t)(g) << 8) | \
+                                    ((uint32_t)(r) << 16) | ((uint32_t)(a) << 24))
+        for (int y = 0; y < pill_height; y++)
+        {
+            if (y < PILL_BORDER || y >= pill_height - PILL_BORDER)
+                mid[y] = BGRA_M(bc.ch.red, bc.ch.green, bc.ch.blue, bc_a);
+            else
+                mid[y] = BGRA_M(bg.ch.red, bg.ch.green, bg.ch.blue, bg_a);
+        }
+        #undef BGRA_M
+
+        pill_mid_dsc[s].header.always_zero = 0;
+        pill_mid_dsc[s].header.w = 1;
+        pill_mid_dsc[s].header.h = pill_height;
+        pill_mid_dsc[s].header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+        pill_mid_dsc[s].data_size = mid_size;
+        pill_mid_dsc[s].data = pill_mid_buf[s];
+    }
+}
+
 /* ── Tab bar state ── */
 static lv_obj_t *tab_bar;
 static lv_obj_t *tab_objs[5];
+/* Sub-objects for 3-slice pills */
+static lv_obj_t *tab_left_caps[5];
+static lv_obj_t *tab_middles[5];    /* canvas for middle section */
+static lv_obj_t *tab_right_caps[5];
+static lv_obj_t *tab_labels[5];
+static void *tab_mid_mem[5];        /* backing buffers for middle canvases */
+static lv_coord_t tab_mid_w[5];     /* middle widths */
 static int current_tab = 0;
 static const char *tab_names[] = {"Recent", "Games", "Apps", "Files", "System"};
 #define TAB_COUNT 5
@@ -266,9 +419,107 @@ static lv_obj_t *meta_launches_label;
 
 static void tab_bar_update(void);
 
+static void tab_bar_create_old_style(lv_obj_t *bar)
+{
+    for (int i = 0; i < TAB_COUNT; i++)
+    {
+        lv_obj_t *pill = lv_obj_create(bar);
+        lv_obj_set_size(pill, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_clear_flag(pill, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_layout(pill, LV_LAYOUT_FLEX);
+        lv_obj_set_flex_flow(pill, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(pill, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_column(pill, 8, LV_PART_MAIN);
+
+        lv_obj_t *lbl = lv_label_create(pill);
+        lv_label_set_text(lbl, tab_names[i]);
+
+        tab_objs[i] = pill;
+        tab_labels[i] = lbl;
+        tab_left_caps[i] = NULL;
+        tab_middles[i] = NULL;
+        tab_right_caps[i] = NULL;
+    }
+}
+
+static void tab_bar_create_3slice(lv_obj_t *bar)
+{
+    /* Measure real pill height from a temp old-style pill */
+    {
+        lv_obj_t *tmp = lv_obj_create(bar);
+        lv_obj_set_size(tmp, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_add_style(tmp, &tab_active_style, LV_PART_MAIN);
+        lv_obj_t *tl = lv_label_create(tmp);
+        lv_label_set_text(tl, "X");
+        lv_obj_update_layout(tmp);
+        pill_height = lv_obj_get_height(tmp);
+        pill_radius = pill_height / 2;
+        lv_obj_del(tmp);
+    }
+
+    pill_render_endcaps();
+
+    for (int i = 0; i < TAB_COUNT; i++)
+    {
+        lv_obj_t *pill = lv_obj_create(bar);
+        lv_obj_set_size(pill, LV_SIZE_CONTENT, pill_height);
+        lv_obj_clear_flag(pill, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_bg_opa(pill, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(pill, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(pill, 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(pill, 0, LV_PART_MAIN);
+        lv_obj_set_layout(pill, LV_LAYOUT_FLEX);
+        lv_obj_set_flex_flow(pill, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(pill, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_column(pill, 0, LV_PART_MAIN);
+
+        lv_obj_t *left_cap = lv_img_create(pill);
+        lv_img_set_src(left_cap, &pill_left_dsc[PILL_ACTIVE]);
+
+        /* Measure text to compute middle width */
+        lv_point_t txt_size;
+        lv_txt_get_size(&txt_size, tab_names[i], &lv_font_rubik_14, 0, 0, LV_COORD_MAX, 0);
+        lv_coord_t mid_w = txt_size.x + 8; /* small padding for text breathing room */
+        tab_mid_w[i] = mid_w;
+
+        /* Middle section — fixed size, no padding, canvas fills entire area */
+        lv_obj_t *middle = lv_obj_create(pill);
+        lv_obj_set_size(middle, mid_w, pill_height);
+        lv_obj_set_style_radius(middle, 0, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(middle, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(middle, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(middle, 0, LV_PART_MAIN);
+        lv_obj_clear_flag(middle, LV_OBJ_FLAG_SCROLLABLE);
+
+        /* Canvas covers full middle area */
+        lv_obj_t *mid_canvas = lv_canvas_create(middle);
+        void *mid_mem = lv_mem_alloc(mid_w * pill_height * sizeof(lv_color_t));
+        lv_canvas_set_buffer(mid_canvas, mid_mem, mid_w, pill_height, LV_IMG_CF_TRUE_COLOR_ALPHA);
+        lv_obj_set_pos(mid_canvas, 0, 0);
+        lv_obj_move_background(mid_canvas);
+        tab_mid_mem[i] = mid_mem;
+
+        /* Label centered on top of canvas */
+        lv_obj_t *lbl = lv_label_create(middle);
+        lv_label_set_text(lbl, tab_names[i]);
+        lv_obj_set_style_text_font(lbl, &lv_font_rubik_14, LV_PART_MAIN);
+        lv_obj_center(lbl);
+
+        lv_obj_t *right_cap = lv_img_create(pill);
+        lv_img_set_src(right_cap, &pill_right_dsc[PILL_ACTIVE]);
+
+        tab_objs[i] = pill;
+        tab_left_caps[i] = left_cap;
+        tab_middles[i] = middle;
+        tab_right_caps[i] = right_cap;
+        tab_labels[i] = lbl;
+    }
+}
+
 static void tab_bar_create(lv_obj_t *parent)
 {
     lv_coord_t w = lv_obj_get_width(parent);
+
     tab_bar = lv_obj_create(parent);
     lv_obj_set_size(tab_bar, w, 40);
     lv_obj_align(tab_bar, LV_ALIGN_TOP_LEFT, 0, 44);
@@ -281,37 +532,83 @@ static void tab_bar_create(lv_obj_t *parent)
     lv_obj_set_style_pad_column(tab_bar, 4, LV_PART_MAIN);
     lv_obj_clear_flag(tab_bar, LV_OBJ_FLAG_SCROLLABLE);
 
-    for (int i = 0; i < TAB_COUNT; i++)
-    {
-        lv_obj_t *pill = lv_obj_create(tab_bar);
-        lv_obj_set_size(pill, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_clear_flag(pill, LV_OBJ_FLAG_SCROLLABLE);
+#if USE_OLD_STYLE_PILLS
+    tab_bar_create_old_style(tab_bar);
+#else
+    tab_bar_create_3slice(tab_bar);
+#endif
 
-        lv_obj_set_layout(pill, LV_LAYOUT_FLEX);
-        lv_obj_set_flex_flow(pill, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(pill, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_column(pill, 8, LV_PART_MAIN);
-
-        lv_obj_t *lbl = lv_label_create(pill);
-        lv_label_set_text(lbl, tab_names[i]);
-
-        tab_objs[i] = pill;
-    }
     tab_bar_update();
 }
 
+static void tab_pill_fill_middle(int i, pill_state_t ps)
+{
+    /* Tile the 1px-wide pre-rendered strip across the middle canvas */
+    uint32_t *strip = (uint32_t *)pill_mid_buf[ps];
+    uint32_t *dst = (uint32_t *)tab_mid_mem[i];
+    lv_coord_t w = tab_mid_w[i];
+    for (int y = 0; y < pill_height; y++)
+    {
+        uint32_t pixel = strip[y];
+        for (int x = 0; x < w; x++)
+            dst[y * w + x] = pixel;
+    }
+    /* Invalidate canvas so LVGL redraws it */
+    lv_obj_invalidate(tab_middles[i]);
+}
+
+static void tab_pill_set_state(int i, int state)
+{
+    /* state: -1=inactive, 0=active, 1=focused */
+#if USE_OLD_STYLE_PILLS
+    lv_obj_remove_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
+    lv_obj_remove_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+    lv_obj_remove_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
+    if (state < 0)
+        lv_obj_add_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+    else if (state == 1)
+        lv_obj_add_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
+    else
+        lv_obj_add_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
+#else
+    if (state < 0)
+    {
+        lv_img_set_src(tab_left_caps[i], &pill_left_dsc[PILL_INACTIVE]);
+        lv_img_set_src(tab_right_caps[i], &pill_right_dsc[PILL_INACTIVE]);
+        lv_obj_clear_flag(tab_left_caps[i], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(tab_right_caps[i], LV_OBJ_FLAG_HIDDEN);
+        tab_pill_fill_middle(i, PILL_INACTIVE);
+        lv_obj_set_style_text_color(tab_labels[i], EF_FG_MUTED, LV_PART_MAIN);
+    }
+    else
+    {
+        pill_state_t ps = (state == 1) ? PILL_FOCUSED : PILL_ACTIVE;
+
+        lv_obj_clear_flag(tab_left_caps[i], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(tab_right_caps[i], LV_OBJ_FLAG_HIDDEN);
+        lv_img_set_src(tab_left_caps[i], &pill_left_dsc[ps]);
+        lv_img_set_src(tab_right_caps[i], &pill_right_dsc[ps]);
+
+        tab_pill_fill_middle(i, ps);
+
+        lv_color_t text_col = (ps == PILL_FOCUSED) ? EF_FG : dash_accent_color;
+        lv_obj_set_style_text_color(tab_labels[i], text_col, LV_PART_MAIN);
+    }
+#endif
+}
+
+static void tab_bar_update_nav(int highlighted_tab);
+
 static void tab_bar_update(void)
 {
+    if (tab_nav_active)
+    {
+        tab_bar_update_nav(current_tab);
+        return;
+    }
     for (int i = 0; i < TAB_COUNT; i++)
     {
-        lv_obj_remove_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
-        lv_obj_remove_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
-        lv_obj_remove_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
-
-        if (i == current_tab)
-            lv_obj_add_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
-        else
-            lv_obj_add_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+        tab_pill_set_state(i, (i == current_tab) ? 0 : -1);
     }
 }
 
@@ -351,14 +648,7 @@ static void tab_bar_update_nav(int highlighted_tab)
 {
     for (int i = 0; i < TAB_COUNT; i++)
     {
-        lv_obj_remove_style(tab_objs[i], &tab_active_style, LV_PART_MAIN);
-        lv_obj_remove_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
-        lv_obj_remove_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
-
-        if (i == highlighted_tab)
-            lv_obj_add_style(tab_objs[i], &tab_focused_style, LV_PART_MAIN);
-        else
-            lv_obj_add_style(tab_objs[i], &tab_inactive_style, LV_PART_MAIN);
+        tab_pill_set_state(i, (i == highlighted_tab) ? 1 : -1);
     }
 }
 
