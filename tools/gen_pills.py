@@ -196,4 +196,21 @@ start_w = 80  # "START ▸ Menu"
 start_data = render_roundrect(start_w, start_h, 6, 0, EF_FG, 20, EF_FG, 0)
 emit_array("pill_start", start_data, start_w, start_h)
 
+# ── Indicator dots ──
+# Inactive: 5×5 circle, EF_FG @ 64
+dot_inactive = render_circle(5, EF_FG, 64)
+emit_array("pill_dot_inactive", dot_inactive, 5, 5)
+
+# Active: 5×5 circle, accent @ 255
+dot_active = render_circle(5, EF_GREEN, 255)
+emit_array("pill_dot_active", dot_active, 5, 5)
+
+# Active bar: 18×5, radius 3 (for animated expanded dot)
+dot_bar = render_roundrect(18, 5, 3, 0, EF_GREEN, 255, EF_GREEN, 0)
+emit_array("pill_dot_bar", dot_bar, 18, 5)
+
+# ── "READY" pill with green border ──
+ready_data = render_roundrect(80, meta_h, meta_r, 1, META_BG, 179, EF_GREEN, 77)
+emit_array("pill_meta_ready_green", ready_data, 80, meta_h)
+
 print("/* End of generated pill data */")

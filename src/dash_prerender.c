@@ -7,23 +7,15 @@
                            ((uint32_t)(r) << 16) | ((uint32_t)(a) << 24))
 
 /* Render a single pixel based on distance from circle center */
+/* Render a single pixel based on distance from circle center.
+ * Only anti-aliases the outer edge. Inner fill-to-border transition is hard. */
 static uint32_t render_pixel(float dist, float r_inner, float r_outer,
                               lv_color_t bg, uint8_t bg_a,
                               lv_color_t bc, uint8_t bc_a)
 {
-    if (dist <= r_inner - 0.5f)
+    if (dist <= r_inner)
     {
         return BGRA(bg.ch.red, bg.ch.green, bg.ch.blue, bg_a);
-    }
-    else if (dist <= r_inner + 0.5f)
-    {
-        float fill_cov = LV_CLAMP(0.0f, r_inner + 0.5f - dist, 1.0f);
-        float border_cov = 1.0f - fill_cov;
-        uint8_t a = (uint8_t)(fill_cov * bg_a + border_cov * bc_a);
-        uint8_t r = (uint8_t)(fill_cov * bg.ch.red + border_cov * bc.ch.red);
-        uint8_t g = (uint8_t)(fill_cov * bg.ch.green + border_cov * bc.ch.green);
-        uint8_t b = (uint8_t)(fill_cov * bg.ch.blue + border_cov * bc.ch.blue);
-        return BGRA(r, g, b, a);
     }
     else if (dist <= r_outer - 0.5f)
     {
