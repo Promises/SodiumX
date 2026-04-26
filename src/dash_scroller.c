@@ -54,11 +54,11 @@ static lv_ll_t jpeg_decomp_list;
 /* Map TOML page name to tab index: Home=0, Recently Played=1, Apps=2, Files=3, System=4 */
 static int tab_index_for_page(const char *page_title)
 {
-    if (strcmp(page_title, "Recent") == 0)       return 1;
+    if (strcmp(page_title, "Recent") == 0)       return 0;
     if (strcmp(page_title, "Applications") == 0)  return 2;
     if (strcmp(page_title, "Homebrew") == 0)      return 2;
     if (strcmp(page_title, "Apps") == 0)          return 2;
-    return 0; /* "Games" and anything else → Home */
+    return 1; /* "Games" and anything else → Games tab */
 }
 
 static void dash_scroller_sync_tab(void)

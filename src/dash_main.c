@@ -246,7 +246,7 @@ void dash_init(void)
 static lv_obj_t *tab_bar;
 static lv_obj_t *tab_objs[5];
 static int current_tab = 0;
-static const char *tab_names[] = {"Home", "Recently Played", "Apps", "Files", "System"};
+static const char *tab_names[] = {"Recent", "Games", "Apps", "Files", "System"};
 #define TAB_COUNT 5
 
 /* Tab navigation mode state */
@@ -322,7 +322,7 @@ void dash_set_tab(int tab_index)
     tab_bar_update();
 
     /* Update hero strip text */
-    const char *eyebrow_texts[] = {"YOUR LIBRARY", "RECENTLY PLAYED", "APPS & HOMEBREW", "BROWSER", "SYSTEM"};
+    const char *eyebrow_texts[] = {"RECENTLY PLAYED", "GAMES", "APPS & HOMEBREW", "BROWSER", "SYSTEM"};
     if (hero_eyebrow)
         lv_label_set_text(hero_eyebrow, eyebrow_texts[current_tab]);
 
@@ -371,11 +371,11 @@ static int page_for_tab(int tab_index)
         const char *title = dash_scroller_get_title(i);
         if (!title) continue;
         int tab = -1;
-        if (strcmp(title, "Recent") == 0)            tab = 1;
+        if (strcmp(title, "Recent") == 0)            tab = 0;
         else if (strcmp(title, "Applications") == 0)  tab = 2;
         else if (strcmp(title, "Homebrew") == 0)      tab = 2;
         else if (strcmp(title, "Apps") == 0)          tab = 2;
-        else                                          tab = 0;
+        else                                          tab = 1;
         if (tab == tab_index) return i;
     }
     return -1;
@@ -399,7 +399,7 @@ static void tab_nav_activate_tab(int tab_index)
     }
 
     /* Update hero eyebrow */
-    const char *eyebrow_texts[] = {"YOUR LIBRARY", "RECENTLY PLAYED", "APPS & HOMEBREW", "BROWSER", "SYSTEM"};
+    const char *eyebrow_texts[] = {"RECENTLY PLAYED", "GAMES", "APPS & HOMEBREW", "BROWSER", "SYSTEM"};
     if (hero_eyebrow)
         lv_label_set_text(hero_eyebrow, eyebrow_texts[current_tab]);
 }
@@ -550,7 +550,7 @@ void dash_create()
     hero_eyebrow = lv_label_create(hero);
     lv_obj_add_style(hero_eyebrow, &eyebrow_style, LV_PART_MAIN);
     lv_obj_set_style_text_color(hero_eyebrow, dash_accent_color, LV_PART_MAIN);
-    lv_label_set_text(hero_eyebrow, "YOUR LIBRARY");
+    lv_label_set_text(hero_eyebrow, "RECENTLY PLAYED");
 
     hero_counter = lv_label_create(hero);
     lv_obj_add_style(hero_counter, &mono_small_style, LV_PART_MAIN);
@@ -642,8 +642,19 @@ void dash_create()
         create_warning_box(err_msg_db);
     }
 
-    /* Initial tab */
-    dash_set_tab(0);
+    /* Initial tab — sync with startup page */
+    {
+        const char *page_title = dash_scroller_get_title(dash_settings.startup_page_index);
+        if (page_title)
+        {
+            if (strcmp(page_title, "Recent") == 0)            dash_set_tab(0);
+            else if (strcmp(page_title, "Applications") == 0) dash_set_tab(2);
+            else if (strcmp(page_title, "Homebrew") == 0)     dash_set_tab(2);
+            else if (strcmp(page_title, "Apps") == 0)         dash_set_tab(2);
+            else                                              dash_set_tab(1);
+        }
+        else dash_set_tab(0);
+    }
 
     lvgl_removelock();
 }
