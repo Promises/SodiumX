@@ -770,6 +770,8 @@ void dash_create()
     lv_obj_set_pos(launches_img, 0, 0);
     meta_launches_label = lv_label_create(meta_launches_pill);
     lv_label_set_text(meta_launches_label, "0 LAUNCHES");
+    lv_obj_set_style_text_font(meta_launches_label, &lv_font_rubik_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(meta_launches_label, EF_FG, LV_PART_MAIN);
     lv_obj_add_flag(meta_launches_label, LV_OBJ_FLAG_FLOATING);
     lv_obj_center(meta_launches_label);
 
@@ -785,6 +787,7 @@ void dash_create()
     lv_img_set_src(ready_img, &pill_meta_ready_green);
     lv_obj_set_pos(ready_img, 0, 0);
     lv_obj_t *ready_lbl = lv_label_create(ready_pill);
+    lv_obj_set_style_text_font(ready_lbl, &lv_font_rubik_10, LV_PART_MAIN);
     lv_obj_set_style_text_color(ready_lbl, EF_GREEN, LV_PART_MAIN);
     lv_label_set_text(ready_lbl, LV_SYMBOL_OK " READY");
     lv_obj_add_flag(ready_lbl, LV_OBJ_FLAG_FLOATING);
