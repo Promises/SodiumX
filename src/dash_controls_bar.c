@@ -76,9 +76,11 @@ lv_obj_t *dash_controls_bar_create(lv_obj_t *parent)
     lv_obj_set_flex_flow(cb_container, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(cb_container, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(cb_container, LV_OBJ_FLAG_SCROLLABLE);
+    /* Ensure children aren't clipped */
 
     /* Left: button hints */
     lv_obj_t *hints_left = lv_obj_create(cb_container);
+    lv_obj_remove_style_all(hints_left);
     lv_obj_set_size(hints_left, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(hints_left, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(hints_left, 0, LV_PART_MAIN);
@@ -91,11 +93,12 @@ lv_obj_t *dash_controls_bar_create(lv_obj_t *parent)
 
     create_hint(hints_left, "A", EF_GREEN,  "Launch", &lbl_a);
     create_hint(hints_left, "B", EF_RED,    "Back",   &lbl_b);
-    create_hint(hints_left, "X", EF_BLUE,   "Details", &lbl_x);
+    create_hint(hints_left, "X", EF_BLUE,   "Manage", &lbl_x);
     create_hint(hints_left, "Y", EF_YELLOW, "Sort",   &lbl_y);
 
     /* Right: START pill */
     lv_obj_t *start_hint = lv_obj_create(cb_container);
+    lv_obj_remove_style_all(start_hint);
     lv_obj_set_size(start_hint, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(start_hint, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(start_hint, 0, LV_PART_MAIN);
@@ -106,25 +109,18 @@ lv_obj_t *dash_controls_bar_create(lv_obj_t *parent)
     lv_obj_set_style_pad_column(start_hint, 8, LV_PART_MAIN);
     lv_obj_clear_flag(start_hint, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* START pill badge — pre-compiled image */
-    lv_obj_t *start_pill = lv_obj_create(start_hint);
-    lv_obj_set_size(start_pill, pill_start.header.w, pill_start.header.h);
-    lv_obj_set_style_bg_opa(start_pill, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(start_pill, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(start_pill, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(start_pill, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(start_pill, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_t *start_img = lv_img_create(start_pill);
-    lv_img_set_src(start_img, &pill_start);
-    lv_obj_set_pos(start_img, 0, 0);
-
-    lv_obj_t *start_lbl = lv_label_create(start_pill);
+    /* START label + Menu label — pill removed for now, was always clipped */
+    lv_obj_t *start_lbl = lv_label_create(start_hint);
     lv_label_set_text(start_lbl, "START");
-    lv_obj_set_style_text_font(start_lbl, &lv_font_rubik_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(start_lbl, &lv_font_rubik_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(start_lbl, EF_FG, LV_PART_MAIN);
-    lv_obj_set_style_text_letter_space(start_lbl, 1, LV_PART_MAIN);
-    lv_obj_add_flag(start_lbl, LV_OBJ_FLAG_FLOATING);
-    lv_obj_center(start_lbl);
+
+    /* DEBUG: red border on start_hint */
+    lv_obj_set_style_border_width(start_hint, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(start_hint, lv_color_hex(0xff0000), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(start_hint, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(start_hint, lv_color_hex(0xff0000), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(start_hint, 100, LV_PART_MAIN);
 
     lv_obj_t *menu_lbl = lv_label_create(start_hint);
     lv_label_set_text(menu_lbl, "Menu");

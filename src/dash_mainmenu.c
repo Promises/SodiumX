@@ -10,6 +10,7 @@
 static void dash_system_info(void *param);
 static void dash_utilities(void *param);
 static void dash_settings_page(void *param);
+static void dash_settings_new(void *param);
 static void dash_rescan_library(void *param);
 static void dash_launch_msdash(void *param);
 static void dash_launch_dvd(void *param);
@@ -33,7 +34,8 @@ static const mainmenu_item_t menu_items[] = {
     {"Launch MS Dashboard", LV_SYMBOL_RIGHT,    dash_launch_msdash, "Accept \"Launch MS Dashboard\""},
     {"Launch DVD",          LV_SYMBOL_AUDIO,    dash_launch_dvd, "Accept \"Launch DVD\""},
     {"Utilities",           LV_SYMBOL_LIST,     dash_utilities, NULL},
-    {"Settings",            LV_SYMBOL_SETTINGS, dash_settings_page, NULL},
+    {"Settings",            LV_SYMBOL_SETTINGS, dash_settings_new, NULL},
+    {"Settings (Legacy)",   LV_SYMBOL_SETTINGS, dash_settings_page, NULL},
     {"About LithiumX",      LV_SYMBOL_EYE_OPEN, dash_open_about, NULL},
     {"Reboot",              LV_SYMBOL_REFRESH,  dash_reboot, "Accept \"Reboot\""},
     {"Shutdown",            LV_SYMBOL_POWER,    dash_shutdown, "Accept \"Shutdown\""},
@@ -43,7 +45,7 @@ static const mainmenu_item_t menu_items[] = {
 static bool start_menu_open = false;
 static lv_obj_t *overlay;
 static lv_obj_t *menu_card;
-static lv_obj_t *item_objs[8];
+static lv_obj_t *item_objs[12];
 static int menu_selected = 0;
 
 /* ============================================================
@@ -439,6 +441,13 @@ static void dash_settings_page(void *param)
 {
     (void)param;
     dash_settings_open();
+}
+
+static void dash_settings_new(void *param)
+{
+    (void)param;
+    extern void dash_settings_new_open(void);
+    dash_settings_new_open();
 }
 
 static void dash_utilities(void *param)

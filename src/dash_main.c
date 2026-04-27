@@ -80,6 +80,26 @@ static bool check_path_toml(char *err_msg, int err_msg_len)
             fclose(fp);
         }
     }
+
+    /* Parse optional [backup] section from TOML for server config.
+     * Note: toml_string_in allocates via TLSF pool (toml_set_memutil),
+     * so we must NOT call standard free(). The string lives as long as
+     * dash_search_paths does (entire process lifetime). */
+    if (dash_search_paths) {
+        toml_table_t *backup_tbl = toml_table_in(dash_search_paths, "backup");
+        if (backup_tbl) {
+            toml_datum_t server = toml_string_in(backup_tbl, "server");
+            if (server.ok) {
+                strncpy(dash_settings.backup_server, server.u.s,
+                        sizeof(dash_settings.backup_server) - 1);
+            }
+            toml_datum_t port = toml_int_in(backup_tbl, "port");
+            if (port.ok) {
+                dash_settings.backup_port = (uint16_t)port.u.i;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -197,6 +217,11 @@ void dash_init(void)
     dash_settings.resolution_mode = 1;
     dash_settings.ui_sounds = true;
     dash_settings.ftp_enabled = true;
+    /* v4 defaults */
+    lv_memset(dash_settings.backup_server, 0, sizeof(dash_settings.backup_server));
+    dash_settings.backup_port = DASH_BACKUP_PORT_DEFAULT;
+    dash_settings.backup_on_start = false;
+    dash_settings.backup_before_launch = false;
 
     // Read in the toml file that has all the search paths
     check_path_toml(err_msg_toml, sizeof(err_msg_toml));
@@ -662,6 +687,34 @@ void dash_update_hero_counter(int selected, int total)
 void dash_create()
 {
     dash_settings_read();
+
+    /* Re-apply TOML [backup] overrides — settings_read may have wiped them
+     * during v3→v4 migration (DB blob doesn't contain backup fields yet). */
+    if (dash_search_paths) {
+        toml_table_t *backup_tbl = toml_table_in(dash_search_paths, "backup");
+        if (backup_tbl) {
+            toml_datum_t server = toml_string_in(backup_tbl, "server");
+            if (server.ok) {
+                strncpy(dash_settings.backup_server, server.u.s,
+                        sizeof(dash_settings.backup_server) - 1);
+            }
+            toml_datum_t port = toml_int_in(backup_tbl, "port");
+            if (port.ok) {
+                dash_settings.backup_port = (uint16_t)port.u.i;
+            }
+        }
+    }
+
+    dash_printf(LEVEL_TRACE, "[BACKUP] server='%s' port=%d on_start=%d before_launch=%d\n",
+                dash_settings.backup_server, dash_settings.backup_port,
+                dash_settings.backup_on_start, dash_settings.backup_before_launch);
+
+    /* Initialise backup subsystem (starts background manifest scan) */
+    dash_backup_init();
+    if (dash_settings.backup_server[0]) {
+        dash_printf(LEVEL_TRACE, "[BACKUP] Server configured, starting backup\n");
+        dash_backup_start();
+    }
 
     // Resolve accent color
     lv_color_t col = dash_accent_from_enum(

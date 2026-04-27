@@ -75,6 +75,7 @@ static int key_from_name(const char *name)
     if (strcmp(name, "s") == 0)        return DASH_SETTINGS_PAGE;
     if (strcmp(name, "info") == 0)     return DASH_INFO_PAGE;
     if (strcmp(name, "y") == 0)        return DASH_INFO_PAGE;
+    if (strcmp(name, "x") == 0)        return DASH_CONTEXT_PAGE;
     if (strcmp(name, "pageup") == 0)   return DASH_NEXT_PAGE;
     if (strcmp(name, "pagedown") == 0) return DASH_PREV_PAGE;
     if (strcmp(name, "lt") == 0)       return 'L';

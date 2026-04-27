@@ -1,0 +1,14 @@
+services:
+  backup-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.backup-server
+    ports:
+      - "9877:9877"
+      - "9878:9878"
+    volumes:
+      - backup-data:/backups
+    restart: unless-stopped
+
+volumes:
+  backup-data:

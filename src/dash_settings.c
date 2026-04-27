@@ -24,6 +24,14 @@ static void dash_settings_set_v3_defaults(void)
     dash_settings.audio_output = 0;
     dash_settings.ui_sounds = true;
     dash_settings.ftp_enabled = true;
+}
+
+static void dash_settings_set_v4_defaults(void)
+{
+    lv_memset(dash_settings.backup_server, 0, sizeof(dash_settings.backup_server));
+    dash_settings.backup_port = 9877;
+    dash_settings.backup_on_start = false;
+    dash_settings.backup_before_launch = false;
     lv_memset(dash_settings._padding, 0, sizeof(dash_settings._padding));
 }
 
@@ -38,6 +46,42 @@ static int dash_settings_read_callback(void *param, int argc, char **argv, char 
     if (magic == DASH_SETTINGS_MAGIC)
     {
         lv_memcpy(&dash_settings, argv[0], sizeof(dash_settings));
+    }
+    else if (magic == DASH_SETTINGS_MAGIC_V3)
+    {
+        dash_settings_v3_t old;
+        lv_memcpy(&old, argv[0], sizeof(dash_settings_v3_t));
+
+        dash_settings.magic = DASH_SETTINGS_MAGIC;
+        dash_settings.use_fahrenheit = old.use_fahrenheit;
+        dash_settings.auto_launch_dvd = old.auto_launch_dvd;
+        dash_settings.show_debug_info = old.show_debug_info;
+        dash_settings.startup_page_index = old.startup_page_index;
+        dash_settings.theme_colour = old.theme_colour;
+        dash_settings.max_recent_items = old.max_recent_items;
+        dash_settings.items_per_row = old.items_per_row;
+        lv_memcpy(dash_settings.earliest_recent_date, old.earliest_recent_date,
+                   sizeof(dash_settings.earliest_recent_date));
+        lv_memcpy(dash_settings.sort_strings, old.sort_strings,
+                   sizeof(dash_settings.sort_strings));
+
+        dash_settings.accent_index = old.accent_index;
+        dash_settings.show_fps_overlay = old.show_fps_overlay;
+        dash_settings.show_controller_hints = old.show_controller_hints;
+        dash_settings.show_clock_chip = old.show_clock_chip;
+        dash_settings.show_network_chip = old.show_network_chip;
+        dash_settings.show_temp_chip = old.show_temp_chip;
+        dash_settings.animated_background = old.animated_background;
+        dash_settings.backdrop_blur = old.backdrop_blur;
+        dash_settings.tile_parallax = old.tile_parallax;
+        dash_settings.film_grain = old.film_grain;
+        dash_settings.resolution_mode = old.resolution_mode;
+        dash_settings.audio_output = old.audio_output;
+        dash_settings.ui_sounds = old.ui_sounds;
+        dash_settings.ftp_enabled = old.ftp_enabled;
+
+        dash_settings_set_v4_defaults();
+        dash_settings_apply(false);
     }
     else if (magic == DASH_SETTINGS_MAGIC_V2)
     {
@@ -59,6 +103,7 @@ static int dash_settings_read_callback(void *param, int argc, char **argv, char 
 
         dash_settings_set_v3_defaults();
         dash_settings.show_fps_overlay = old.show_debug_info;
+        dash_settings_set_v4_defaults();
         dash_settings_apply(false);
     }
     return 0;
@@ -90,27 +135,28 @@ void dash_settings_apply(bool confirm_box)
 static lv_obj_t *settings_overlay;
 static lv_obj_t *panel_body;
 static int active_section = 0;
-static lv_obj_t *nav_items[6];
+static lv_obj_t *nav_items[7];
 
 typedef enum {
     SECT_DISPLAY = 0,
     SECT_NETWORK,
     SECT_AUDIO,
     SECT_SYSTEM,
+    SECT_BACKUP,
     SECT_EEPROM,
     SECT_ABOUT,
     SECT_COUNT
 } settings_section_t;
 
-static const char *section_names[] = {"Display", "Network", "Audio", "System", "EEPROM", "About"};
+static const char *section_names[] = {"Display", "Network", "Audio", "System", "Backup", "EEPROM", "About"};
 static const char *section_icons[] = {LV_SYMBOL_IMAGE, LV_SYMBOL_WIFI, LV_SYMBOL_VOLUME_MAX,
-                                       LV_SYMBOL_SETTINGS, LV_SYMBOL_SD_CARD, LV_SYMBOL_EYE_OPEN};
+                                       LV_SYMBOL_SETTINGS, LV_SYMBOL_UPLOAD, LV_SYMBOL_SD_CARD, LV_SYMBOL_EYE_OPEN};
 
 /* ── Toggle widget — pre-compiled track + thumb images ── */
 static lv_obj_t *create_toggle(lv_obj_t *parent, bool *value)
 {
     lv_obj_t *track = lv_obj_create(parent);
-    lv_obj_set_size(track, 42, 24);
+    lv_obj_set_size(track, 48, 27);
     lv_obj_set_style_bg_opa(track, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(track, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(track, 0, LV_PART_MAIN);
@@ -122,10 +168,10 @@ static lv_obj_t *create_toggle(lv_obj_t *parent, bool *value)
     lv_img_set_src(track_img, *value ? &pill_toggle_on : &pill_toggle_off);
     lv_obj_set_pos(track_img, 0, 0);
 
-    /* Thumb image */
+    /* Thumb image (29px canvas: 19px circle + 5px shadow padding) */
     lv_obj_t *thumb = lv_img_create(track);
-    lv_img_set_src(thumb, &pill_toggle_thumb);
-    lv_obj_set_pos(thumb, *value ? 21 : 3, 3); /* 3px padding, 18px travel */
+    lv_img_set_src(thumb, *value ? &pill_toggle_thumb_on : &pill_toggle_thumb_off);
+    lv_obj_set_pos(thumb, *value ? 20 : -1, -1);
 
     track->user_data = value;
     return track;
@@ -313,6 +359,54 @@ static void build_system_section(lv_obj_t *body)
     create_toggle(r4, &dash_settings.use_fahrenheit);
 }
 
+/* ── Backup status readout label (updated by backup module) ── */
+static lv_obj_t *backup_status_label = NULL;
+
+static void build_backup_section(lv_obj_t *body)
+{
+    lv_obj_t *title = lv_label_create(body);
+    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_label_set_text(title, "Save Backup");
+    lv_obj_t *sub = lv_label_create(body);
+    lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
+    lv_label_set_text(sub, "Back up game saves to a remote server.");
+    lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
+
+    /* Server address */
+    lv_obj_t *r1 = create_setting_row(body, "Backup Server",
+        "IP address of the backup server (set via TOML).", true);
+    lv_obj_t *addr_val = lv_label_create(r1);
+    lv_obj_set_style_text_font(addr_val, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(addr_val, EF_FG, LV_PART_MAIN);
+    if (dash_settings.backup_server[0])
+        lv_label_set_text(addr_val, dash_settings.backup_server);
+    else
+        lv_label_set_text(addr_val, "Not configured");
+
+    /* Port */
+    char port_str[8];
+    lv_snprintf(port_str, sizeof(port_str), "%d", dash_settings.backup_port);
+    create_readout(body, "Port", port_str, false);
+
+    /* Auto-backup on startup */
+    lv_obj_t *r3 = create_setting_row(body, "Backup on startup",
+        "Run backup when dashboard starts.", false);
+    create_toggle(r3, &dash_settings.backup_on_start);
+
+    /* Backup before game launch */
+    lv_obj_t *r4 = create_setting_row(body, "Backup before launch",
+        "Back up saves before launching a game.", false);
+    create_toggle(r4, &dash_settings.backup_before_launch);
+
+    /* Status readout */
+    lv_obj_t *r5 = create_setting_row(body, "Status", NULL, false);
+    backup_status_label = lv_label_create(r5);
+    lv_obj_set_style_text_font(backup_status_label, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(backup_status_label, EF_FG, LV_PART_MAIN);
+    const char *status = dash_backup_get_status();
+    lv_label_set_text(backup_status_label, status ? status : "Never run");
+}
+
 static void build_eeprom_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
@@ -349,6 +443,7 @@ static const section_builder_t section_builders[] = {
     build_network_section,
     build_audio_section,
     build_system_section,
+    build_backup_section,
     build_eeprom_section,
     build_about_section,
 };

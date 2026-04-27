@@ -24,6 +24,7 @@ keyboard_map_t lvgl_keyboard_map[] =
     {.sdl_map = SDLK_DOWN, .lvgl_map = LV_KEY_DOWN},
     {.sdl_map = SDLK_LEFT, .lvgl_map = LV_KEY_LEFT},
     {.sdl_map = SDLK_RIGHT, .lvgl_map = LV_KEY_RIGHT},
+    {.sdl_map = SDLK_x, .lvgl_map = DASH_CONTEXT_PAGE},        /* X = context menu */
     {.sdl_map = SDLK_y, .lvgl_map = DASH_INFO_PAGE},           /* Y = synopsis/details */
     {.sdl_map = SDLK_s, .lvgl_map = DASH_SETTINGS_PAGE},       /* S = START (menu) */
     {.sdl_map = SDLK_b, .lvgl_map = LV_KEY_ESC},               /* B = back */
@@ -37,7 +38,7 @@ gamecontroller_map_t lvgl_gamecontroller_map[] =
 {
     {.sdl_map = SDL_CONTROLLER_BUTTON_A, .lvgl_map = LV_KEY_ENTER},
     {.sdl_map = SDL_CONTROLLER_BUTTON_B, .lvgl_map = LV_KEY_ESC},
-    {.sdl_map = SDL_CONTROLLER_BUTTON_X, .lvgl_map = LV_KEY_BACKSPACE},
+    {.sdl_map = SDL_CONTROLLER_BUTTON_X, .lvgl_map = DASH_CONTEXT_PAGE},
     {.sdl_map = SDL_CONTROLLER_BUTTON_Y, .lvgl_map = DASH_INFO_PAGE},
     {.sdl_map = SDL_CONTROLLER_BUTTON_BACK, .lvgl_map = DASH_INFO_PAGE},
     {.sdl_map = SDL_CONTROLLER_BUTTON_GUIDE, .lvgl_map = 0},
@@ -292,6 +293,8 @@ int main(int argc, char* argv[]) {
         #endif
     }
     dash_printf(LEVEL_TRACE, "Quitting dash with quit event %d\n", lv_get_quit());
+    dash_backup_abort();
+    dash_backup_deinit();
     dash_remote_deinit();
     lv_port_disp_deinit();
     lv_port_indev_deinit();

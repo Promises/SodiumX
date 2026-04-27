@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY backup_server.py .
+
+EXPOSE 9877
+
+ENTRYPOINT ["python3", "backup_server.py"]
+CMD ["--port", "9877", "--backup-dir", "/backups"]

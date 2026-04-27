@@ -71,6 +71,10 @@ set(SOURCES
     src/dash_controls_bar.c
     src/dash_sysinfo.c
     src/dash_remote.c
+    src/dash_backup.c
+    src/dash_context_menu.c
+    src/dash_panel.c
+    src/dash_settings_new.c
     src/dash_backdrop.c
     src/dash_prerender.c
     src/fonts/lv_font_rubik_10.c

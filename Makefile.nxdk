@@ -26,6 +26,10 @@ SRCS += \
     $(CURDIR)/src/dash_controls_bar.c \
     $(CURDIR)/src/dash_sysinfo.c \
     $(CURDIR)/src/dash_remote.c \
+    $(CURDIR)/src/dash_backup.c \
+    $(CURDIR)/src/dash_context_menu.c \
+    $(CURDIR)/src/dash_panel.c \
+    $(CURDIR)/src/dash_settings_new.c \
     $(CURDIR)/src/dash_backdrop.c \
     $(CURDIR)/src/dash_prerender.c \
     $(CURDIR)/src/main.c \

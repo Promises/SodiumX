@@ -41,6 +41,9 @@ int strcasecmp(const char *s1, const char *s2);
 #include "dash_sysinfo.h"
 #include "dash_backdrop.h"
 #include "dash_remote.h"
+#include "dash_backup.h"
+#include "dash_panel.h"
+#include "dash_context_menu.h"
 
 #include "lvgl_drivers/lv_port_disp.h"
 #include "lvgl_drivers/lv_port_indev.h"
@@ -139,6 +142,7 @@ int strcasecmp(const char *s1, const char *s2);
 #define DASH_PREV_PAGE '<'
 #define DASH_SETTINGS_PAGE 's'
 #define DASH_INFO_PAGE 'i'
+#define DASH_CONTEXT_PAGE 'x'
 #define DASH_PREV_TAB 't'
 #define DASH_NEXT_TAB 'T'
 

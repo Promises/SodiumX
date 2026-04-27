@@ -554,6 +554,11 @@ static void item_selection_callback(lv_event_t *event)
             dash_synop_open(t->db_id);
             return;
         }
+        else if (key == DASH_CONTEXT_PAGE && selected_index > 0)
+        {
+            dash_context_menu_open(t->db_id);
+            return;
+        }
         else if (key == DASH_SETTINGS_PAGE)
         {
             dash_mainmenu_open();

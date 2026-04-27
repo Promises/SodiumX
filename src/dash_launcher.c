@@ -185,6 +185,11 @@ void dash_launcher_go(const char *selected_path)
             "0.0");
     }
 
+    // Trigger backup before launch (non-blocking — will run until app exits)
+    if (dash_settings.backup_before_launch && dash_settings.backup_server[0]) {
+        dash_backup_start();
+    }
+
     // Setup launch path then quit
     strcpy(dash_launch_path, launch_params->selected_path);
     lv_set_quit(LV_QUIT_OTHER);
