@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "lithiumx.h"
+#include "dash_pill_data.h"
 
 static lv_obj_t *cb_container;
 static lv_obj_t *lbl_a;
@@ -105,24 +106,25 @@ lv_obj_t *dash_controls_bar_create(lv_obj_t *parent)
     lv_obj_set_style_pad_column(start_hint, 8, LV_PART_MAIN);
     lv_obj_clear_flag(start_hint, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* START pill badge */
+    /* START pill badge — pre-compiled image */
     lv_obj_t *start_pill = lv_obj_create(start_hint);
-    lv_obj_set_size(start_pill, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(start_pill, EF_FG, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(start_pill, 20, LV_PART_MAIN); /* ~8% */
-    lv_obj_set_style_radius(start_pill, 6, LV_PART_MAIN);
-    lv_obj_set_style_pad_left(start_pill, 9, LV_PART_MAIN);
-    lv_obj_set_style_pad_right(start_pill, 9, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(start_pill, 3, LV_PART_MAIN);
-    lv_obj_set_style_pad_bottom(start_pill, 3, LV_PART_MAIN);
+    lv_obj_set_size(start_pill, pill_start.header.w, pill_start.header.h);
+    lv_obj_set_style_bg_opa(start_pill, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(start_pill, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(start_pill, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(start_pill, 0, LV_PART_MAIN);
     lv_obj_clear_flag(start_pill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *start_img = lv_img_create(start_pill);
+    lv_img_set_src(start_img, &pill_start);
+    lv_obj_set_pos(start_img, 0, 0);
 
     lv_obj_t *start_lbl = lv_label_create(start_pill);
     lv_label_set_text(start_lbl, "START");
     lv_obj_set_style_text_font(start_lbl, &lv_font_rubik_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(start_lbl, EF_FG, LV_PART_MAIN);
     lv_obj_set_style_text_letter_space(start_lbl, 1, LV_PART_MAIN);
+    lv_obj_add_flag(start_lbl, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(start_lbl);
 
     lv_obj_t *menu_lbl = lv_label_create(start_hint);
     lv_label_set_text(menu_lbl, "Menu");

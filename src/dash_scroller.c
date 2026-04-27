@@ -3,6 +3,7 @@
 
 #include "lithiumx.h"
 #include "dash_anim.h"
+#include "dash_pill_data.h"
 #include <src/misc/lv_lru.h>
 #include <src/misc/lv_ll.h>
 
@@ -416,49 +417,19 @@ static void update_indicator_dots(int sel, int total)
         lv_obj_clean(dots_container);
         for (int i = 0; i < total && i < MAX_DOTS; i++)
         {
-            lv_obj_t *dot = lv_obj_create(dots_container);
-            lv_obj_set_size(dot, 5, 5);
-            lv_obj_set_style_border_width(dot, 0, LV_PART_MAIN);
-            lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-            lv_obj_set_style_pad_all(dot, 0, LV_PART_MAIN);
-            lv_obj_set_style_bg_color(dot, EF_FG, LV_PART_MAIN);
-            lv_obj_set_style_bg_opa(dot, 64, LV_PART_MAIN);
-            lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_t *dot = lv_img_create(dots_container);
+            lv_img_set_src(dot, &pill_dot_inactive);
         }
     }
 
-    /* Animate each dot */
+    /* Update each dot — swap image source for selected */
     for (int i = 0; i < (int)lv_obj_get_child_cnt(dots_container); i++)
     {
         lv_obj_t *dot = lv_obj_get_child(dots_container, i);
-        int target_w = (i == sel) ? 18 : 5;
-        int cur_w = lv_obj_get_width(dot);
-
-        if (cur_w != target_w)
-        {
-            /* Animate width */
-            lv_anim_t a;
-            lv_anim_init(&a);
-            lv_anim_set_var(&a, dot);
-            lv_anim_set_values(&a, cur_w, target_w);
-            lv_anim_set_time(&a, 350);
-            lv_anim_set_exec_cb(&a, _anim_width_cb);
-            lv_anim_set_path_cb(&a, dash_anim_path_ease_rail);
-            lv_anim_start(&a);
-        }
-
         if (i == sel)
-        {
-            lv_obj_set_style_radius(dot, 3, LV_PART_MAIN);
-            lv_obj_set_style_bg_color(dot, dash_accent_color, LV_PART_MAIN);
-            lv_obj_set_style_bg_opa(dot, LV_OPA_COVER, LV_PART_MAIN);
-        }
+            lv_img_set_src(dot, &pill_dot_bar);
         else
-        {
-            lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-            lv_obj_set_style_bg_color(dot, EF_FG, LV_PART_MAIN);
-            lv_obj_set_style_bg_opa(dot, 64, LV_PART_MAIN);
-        }
+            lv_img_set_src(dot, &pill_dot_inactive);
     }
 }
 

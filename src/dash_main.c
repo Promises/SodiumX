@@ -3,6 +3,7 @@
 
 #include "lithiumx.h"
 #include "dash_prerender.h"
+#include "dash_pill_data.h"
 
 // Globals
 toml_table_t *dash_search_paths;
@@ -756,22 +757,38 @@ void dash_create()
     lv_obj_set_style_pad_column(meta_pills, 8, LV_PART_MAIN);
     lv_obj_clear_flag(meta_pills, LV_OBJ_FLAG_SCROLLABLE);
 
+    /* "0 LAUNCHES" pill — pre-compiled image */
     meta_launches_pill = lv_obj_create(meta_pills);
-    lv_obj_add_style(meta_launches_pill, &meta_pill_style, LV_PART_MAIN);
-    lv_obj_set_size(meta_launches_pill, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_size(meta_launches_pill, pill_meta_launches.header.w, pill_meta_launches.header.h);
+    lv_obj_set_style_bg_opa(meta_launches_pill, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(meta_launches_pill, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(meta_launches_pill, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(meta_launches_pill, 0, LV_PART_MAIN);
     lv_obj_clear_flag(meta_launches_pill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *launches_img = lv_img_create(meta_launches_pill);
+    lv_img_set_src(launches_img, &pill_meta_launches);
+    lv_obj_set_pos(launches_img, 0, 0);
     meta_launches_label = lv_label_create(meta_launches_pill);
     lv_label_set_text(meta_launches_label, "0 LAUNCHES");
+    lv_obj_add_flag(meta_launches_label, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(meta_launches_label);
 
+    /* "READY" pill — pre-compiled image with green border */
     lv_obj_t *ready_pill = lv_obj_create(meta_pills);
-    lv_obj_add_style(ready_pill, &meta_pill_style, LV_PART_MAIN);
-    lv_obj_set_size(ready_pill, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_border_color(ready_pill, EF_GREEN, LV_PART_MAIN);
-    lv_obj_set_style_border_opa(ready_pill, 77, LV_PART_MAIN);
+    lv_obj_set_size(ready_pill, pill_meta_ready_green.header.w, pill_meta_ready_green.header.h);
+    lv_obj_set_style_bg_opa(ready_pill, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ready_pill, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(ready_pill, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(ready_pill, 0, LV_PART_MAIN);
     lv_obj_clear_flag(ready_pill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *ready_img = lv_img_create(ready_pill);
+    lv_img_set_src(ready_img, &pill_meta_ready_green);
+    lv_obj_set_pos(ready_img, 0, 0);
     lv_obj_t *ready_lbl = lv_label_create(ready_pill);
     lv_obj_set_style_text_color(ready_lbl, EF_GREEN, LV_PART_MAIN);
     lv_label_set_text(ready_lbl, LV_SYMBOL_OK " READY");
+    lv_obj_add_flag(ready_lbl, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(ready_lbl);
 
     /* Layer 7: Controls bar (bottom 52px) */
     dash_controls_bar_create(lv_scr_act());

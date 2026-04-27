@@ -3,6 +3,7 @@
 
 #include "lithiumx.h"
 #include "dash_anim.h"
+#include "dash_pill_data.h"
 
 /* ============================================================
  *  Settings persistence (read/write via SQLite blob)
@@ -105,23 +106,26 @@ static const char *section_names[] = {"Display", "Network", "Audio", "System", "
 static const char *section_icons[] = {LV_SYMBOL_IMAGE, LV_SYMBOL_WIFI, LV_SYMBOL_VOLUME_MAX,
                                        LV_SYMBOL_SETTINGS, LV_SYMBOL_SD_CARD, LV_SYMBOL_EYE_OPEN};
 
-/* ── Toggle widget ── */
+/* ── Toggle widget — pre-compiled track + thumb images ── */
 static lv_obj_t *create_toggle(lv_obj_t *parent, bool *value)
 {
     lv_obj_t *track = lv_obj_create(parent);
     lv_obj_set_size(track, 42, 24);
+    lv_obj_set_style_bg_opa(track, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(track, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(track, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(track, 0, LV_PART_MAIN);
     lv_obj_clear_flag(track, LV_OBJ_FLAG_SCROLLABLE);
 
-    if (*value)
-        lv_obj_add_style(track, &toggle_on_style, LV_PART_MAIN);
-    else
-        lv_obj_add_style(track, &toggle_off_style, LV_PART_MAIN);
+    /* Track background image */
+    lv_obj_t *track_img = lv_img_create(track);
+    lv_img_set_src(track_img, *value ? &pill_toggle_on : &pill_toggle_off);
+    lv_obj_set_pos(track_img, 0, 0);
 
-    lv_obj_t *thumb = lv_obj_create(track);
-    lv_obj_set_size(thumb, 18, 18);
-    lv_obj_add_style(thumb, &toggle_thumb_style, LV_PART_MAIN);
-    lv_obj_clear_flag(thumb, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_translate_x(thumb, *value ? 18 : 0, LV_PART_MAIN);
+    /* Thumb image */
+    lv_obj_t *thumb = lv_img_create(track);
+    lv_img_set_src(thumb, &pill_toggle_thumb);
+    lv_obj_set_pos(thumb, *value ? 21 : 3, 3); /* 3px padding, 18px travel */
 
     track->user_data = value;
     return track;
