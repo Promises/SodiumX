@@ -40,6 +40,21 @@ void platform_flush_cache()
 
 }
 
+void dash_network_apply(void) { }
+void dash_ftp_start(void) { }
+void dash_ftp_stop(void) { }
+
+void dash_network_get_info(dash_net_info_t *info)
+{
+    memset(info, 0, sizeof(*info));
+    info->link_up = true;
+    info->dhcp_active = true;
+    info->link_speed_mbps = 100;
+    strncpy(info->ip, "127.0.0.1", sizeof(info->ip));
+    strncpy(info->mask, "255.0.0.0", sizeof(info->mask));
+    strncpy(info->gateway, "127.0.0.1", sizeof(info->gateway));
+}
+
 void platform_get_iso8601_time(char time_str[20])
 {
     time_t rawtime;

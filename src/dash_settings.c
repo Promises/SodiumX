@@ -32,6 +32,17 @@ static void dash_settings_set_v4_defaults(void)
     dash_settings.backup_port = 9877;
     dash_settings.backup_on_start = false;
     dash_settings.backup_before_launch = false;
+}
+
+static void dash_settings_set_v5_defaults(void)
+{
+    dash_settings.dhcp_enabled = true;
+    lv_memset(dash_settings.static_ip, 0, sizeof(dash_settings.static_ip));
+    lv_memset(dash_settings.static_mask, 0, sizeof(dash_settings.static_mask));
+    lv_memset(dash_settings.static_gateway, 0, sizeof(dash_settings.static_gateway));
+    dash_settings.custom_dns = false;
+    lv_memset(dash_settings.dns1, 0, sizeof(dash_settings.dns1));
+    lv_memset(dash_settings.dns2, 0, sizeof(dash_settings.dns2));
     lv_memset(dash_settings._padding, 0, sizeof(dash_settings._padding));
 }
 
@@ -46,6 +57,48 @@ static int dash_settings_read_callback(void *param, int argc, char **argv, char 
     if (magic == DASH_SETTINGS_MAGIC)
     {
         lv_memcpy(&dash_settings, argv[0], sizeof(dash_settings));
+    }
+    else if (magic == DASH_SETTINGS_MAGIC_V4)
+    {
+        dash_settings_v4_t old;
+        lv_memcpy(&old, argv[0], sizeof(dash_settings_v4_t));
+
+        dash_settings.magic = DASH_SETTINGS_MAGIC;
+        dash_settings.use_fahrenheit = old.use_fahrenheit;
+        dash_settings.auto_launch_dvd = old.auto_launch_dvd;
+        dash_settings.show_debug_info = old.show_debug_info;
+        dash_settings.startup_page_index = old.startup_page_index;
+        dash_settings.theme_colour = old.theme_colour;
+        dash_settings.max_recent_items = old.max_recent_items;
+        dash_settings.items_per_row = old.items_per_row;
+        lv_memcpy(dash_settings.earliest_recent_date, old.earliest_recent_date,
+                   sizeof(dash_settings.earliest_recent_date));
+        lv_memcpy(dash_settings.sort_strings, old.sort_strings,
+                   sizeof(dash_settings.sort_strings));
+
+        dash_settings.accent_index = old.accent_index;
+        dash_settings.show_fps_overlay = old.show_fps_overlay;
+        dash_settings.show_controller_hints = old.show_controller_hints;
+        dash_settings.show_clock_chip = old.show_clock_chip;
+        dash_settings.show_network_chip = old.show_network_chip;
+        dash_settings.show_temp_chip = old.show_temp_chip;
+        dash_settings.animated_background = old.animated_background;
+        dash_settings.backdrop_blur = old.backdrop_blur;
+        dash_settings.tile_parallax = old.tile_parallax;
+        dash_settings.film_grain = old.film_grain;
+        dash_settings.resolution_mode = old.resolution_mode;
+        dash_settings.audio_output = old.audio_output;
+        dash_settings.ui_sounds = old.ui_sounds;
+        dash_settings.ftp_enabled = old.ftp_enabled;
+
+        lv_memcpy(dash_settings.backup_server, old.backup_server, sizeof(dash_settings.backup_server));
+        dash_settings.backup_port = old.backup_port;
+        dash_settings.backup_on_start = old.backup_on_start;
+        dash_settings.backup_before_launch = old.backup_before_launch;
+        dash_settings.disable_vsync = old.disable_vsync;
+
+        dash_settings_set_v5_defaults();
+        dash_settings_apply(false);
     }
     else if (magic == DASH_SETTINGS_MAGIC_V3)
     {
@@ -81,6 +134,7 @@ static int dash_settings_read_callback(void *param, int argc, char **argv, char 
         dash_settings.ftp_enabled = old.ftp_enabled;
 
         dash_settings_set_v4_defaults();
+        dash_settings_set_v5_defaults();
         dash_settings_apply(false);
     }
     else if (magic == DASH_SETTINGS_MAGIC_V2)
@@ -104,6 +158,7 @@ static int dash_settings_read_callback(void *param, int argc, char **argv, char 
         dash_settings_set_v3_defaults();
         dash_settings.show_fps_overlay = old.show_debug_info;
         dash_settings_set_v4_defaults();
+        dash_settings_set_v5_defaults();
         dash_settings_apply(false);
     }
     return 0;

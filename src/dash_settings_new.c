@@ -81,11 +81,12 @@ static void section_header(lv_obj_t *body, const char *title_text, const char *s
 /* ══════════════════════════════════════════════════════════════════
  *  Toggle row system — reusable for any section with bool toggles
  * ══════════════════════════════════════════════════════════════════ */
-#define MAX_TOGGLE_ROWS 10
+#define MAX_TOGGLE_ROWS 16
 
 typedef enum {
     ROW_TOGGLE,
     ROW_TEXT,
+    ROW_ACTION,
 } setting_row_type_t;
 
 typedef struct {
@@ -100,6 +101,9 @@ typedef struct {
     char *text_buf;
     int text_buf_size;
     lv_obj_t *text_label;
+    /* Callbacks */
+    void (*on_change)(void);   /* called after toggle or action */
+    int keyboard_mode;         /* DASH_KB_MODE_FULL or _NUMERIC for text rows */
 } setting_row_t;
 
 static setting_row_t toggle_rows[MAX_TOGGLE_ROWS];
@@ -140,6 +144,42 @@ static void create_toggle_row(lv_obj_t *parent, const char *label_text,
     toggle_rows[toggle_row_count].row = row;
     toggle_rows[toggle_row_count].text_buf = NULL;
     toggle_rows[toggle_row_count].text_label = NULL;
+    toggle_rows[toggle_row_count].on_change = NULL;
+    toggle_rows[toggle_row_count].keyboard_mode = DASH_KB_MODE_FULL;
+    toggle_row_count++;
+}
+
+/* Toggle with on_change callback */
+static void create_toggle_row_cb(lv_obj_t *parent, const char *label_text,
+                                  const char *desc_text, bool *value,
+                                  void (*on_change)(void), bool first)
+{
+    create_toggle_row(parent, label_text, desc_text, value, first);
+    if (toggle_row_count > 0)
+        toggle_rows[toggle_row_count - 1].on_change = on_change;
+}
+
+/* Action button row — styled as a highlighted pressable row */
+static void create_action_row(lv_obj_t *parent, const char *label_text,
+                               const char *desc_text, void (*action)(void), bool first)
+{
+    if (toggle_row_count >= MAX_TOGGLE_ROWS) return;
+
+    lv_obj_t *row = create_setting_row_new(parent, label_text, desc_text, first);
+
+    /* Style the row as an action button — accent colored */
+    lv_obj_set_style_bg_color(row, lv_color_hex(0xa7c080), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(row, LV_OPA_20, LV_PART_MAIN);
+
+    toggle_rows[toggle_row_count].type = ROW_ACTION;
+    toggle_rows[toggle_row_count].row = row;
+    toggle_rows[toggle_row_count].label = label_text;
+    toggle_rows[toggle_row_count].value = NULL;
+    toggle_rows[toggle_row_count].track_img = NULL;
+    toggle_rows[toggle_row_count].thumb_img = NULL;
+    toggle_rows[toggle_row_count].text_buf = NULL;
+    toggle_rows[toggle_row_count].text_label = NULL;
+    toggle_rows[toggle_row_count].on_change = action;
     toggle_row_count++;
 }
 
@@ -180,7 +220,18 @@ static void create_text_row(lv_obj_t *parent, const char *label_text,
     toggle_rows[toggle_row_count].value = NULL;
     toggle_rows[toggle_row_count].track_img = text_container;  /* reuse for focus border */
     toggle_rows[toggle_row_count].thumb_img = NULL;
+    toggle_rows[toggle_row_count].on_change = NULL;
+    toggle_rows[toggle_row_count].keyboard_mode = DASH_KB_MODE_FULL;
     toggle_row_count++;
+}
+
+/* Text row that uses numeric keyboard */
+static void create_numeric_text_row(lv_obj_t *parent, const char *label_text,
+                                     const char *desc_text, char *buf, int buf_size, bool first)
+{
+    create_text_row(parent, label_text, desc_text, buf, buf_size, first);
+    if (toggle_row_count > 0)
+        toggle_rows[toggle_row_count - 1].keyboard_mode = DASH_KB_MODE_NUMERIC;
 }
 
 static void update_toggle_visuals(void)
@@ -209,6 +260,15 @@ static void update_toggle_visuals(void)
                 lv_obj_set_style_border_color(t->track_img, lv_color_hex(0x414b50), LV_PART_MAIN);
                 lv_obj_set_style_border_width(t->track_img, 1, LV_PART_MAIN);
             }
+        } else if (t->type == ROW_ACTION) {
+            if (focused) {
+                lv_obj_set_style_bg_opa(t->row, LV_OPA_30, LV_PART_MAIN);
+                lv_obj_set_style_border_width(t->row, 1, LV_PART_MAIN);
+                lv_obj_set_style_border_color(t->row, lv_color_hex(0xa7c080), LV_PART_MAIN);
+            } else {
+                lv_obj_set_style_bg_opa(t->row, LV_OPA_20, LV_PART_MAIN);
+                lv_obj_set_style_border_width(t->row, 0, LV_PART_MAIN);
+            }
         }
     }
 }
@@ -228,11 +288,33 @@ static void toggle_current(void)
 
     if (t->type == ROW_TOGGLE) {
         *t->value = !*t->value;
+        if (t->on_change) t->on_change();
     } else if (t->type == ROW_TEXT) {
-        dash_keyboard_open(t->text_buf, t->text_buf_size, DASH_KB_MODE_FULL,
+        dash_keyboard_open(t->text_buf, t->text_buf_size, t->keyboard_mode,
                            kb_done_refresh_text);
+    } else if (t->type == ROW_ACTION) {
+        if (t->on_change) t->on_change();
     }
     update_toggle_visuals();
+}
+
+/* Forward-declare network row indices (defined in network section below) */
+static int net_static_ip_row;
+static int net_static_mask_row;
+static int net_static_gw_row;
+static int net_dns1_row;
+static int net_dns2_row;
+
+/* Check if a row is currently read-only (view-only, skip in navigation) */
+static bool net_row_is_readonly(int idx)
+{
+    if (dash_settings.dhcp_enabled &&
+        (idx == net_static_ip_row || idx == net_static_mask_row || idx == net_static_gw_row))
+        return true;
+    if (!dash_settings.custom_dns &&
+        (idx == net_dns1_row || idx == net_dns2_row))
+        return true;
+    return false;
 }
 
 static bool toggles_on_key(lv_key_t key)
@@ -243,14 +325,24 @@ static bool toggles_on_key(lv_key_t key)
     if (toggle_row_count == 0) return false;
 
     if (key == LV_KEY_UP) {
-        toggle_row_selected = (toggle_row_selected - 1 + toggle_row_count) % toggle_row_count;
+        for (int i = 0; i < toggle_row_count; i++) {
+            toggle_row_selected = (toggle_row_selected - 1 + toggle_row_count) % toggle_row_count;
+            if (!lv_obj_has_flag(toggle_rows[toggle_row_selected].row, LV_OBJ_FLAG_HIDDEN)
+                && !net_row_is_readonly(toggle_row_selected))
+                break;
+        }
         update_toggle_visuals();
         if (toggle_rows[toggle_row_selected].row)
             lv_obj_scroll_to_view(toggle_rows[toggle_row_selected].row, LV_ANIM_ON);
         return true;
     }
     if (key == LV_KEY_DOWN) {
-        toggle_row_selected = (toggle_row_selected + 1) % toggle_row_count;
+        for (int i = 0; i < toggle_row_count; i++) {
+            toggle_row_selected = (toggle_row_selected + 1) % toggle_row_count;
+            if (!lv_obj_has_flag(toggle_rows[toggle_row_selected].row, LV_OBJ_FLAG_HIDDEN)
+                && !net_row_is_readonly(toggle_row_selected))
+                break;
+        }
         update_toggle_visuals();
         if (toggle_rows[toggle_row_selected].row)
             lv_obj_scroll_to_view(toggle_rows[toggle_row_selected].row, LV_ANIM_ON);
@@ -321,27 +413,235 @@ static void build_display(lv_obj_t *body)
     create_toggle_row(body, "Film grain",
         "Overlay noise for texture.",
         &dash_settings.film_grain, false);
+    create_toggle_row(body, "Disable VSync",
+        "Unlocks frame rate. May cause tearing.",
+        &dash_settings.disable_vsync, false);
 }
 
 /* ══════════════════════════════════════════════════════════════════
- *  Section: Network (real data from platform)
+ *  Section: Network
  * ══════════════════════════════════════════════════════════════════ */
+
+/* Switch a text row between readout style (plain text, no box) and editable
+ * style (text inside bordered container). track_img is the text container. */
+static void net_set_row_readonly(int idx, const char *value)
+{
+    if (idx < 0 || idx >= toggle_row_count) return;
+    setting_row_t *t = &toggle_rows[idx];
+    if (!t->track_img || !t->text_label) return;
+
+    /* Hide the input container, re-parent label to the row for readout look */
+    lv_obj_add_flag(t->track_img, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_parent(t->text_label, t->row);
+    lv_obj_set_style_text_font(t->text_label, &dash_font_ui_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(t->text_label, EF_FG, LV_PART_MAIN);
+    lv_label_set_text(t->text_label, (value && value[0]) ? value : "---");
+}
+
+static void net_set_row_editable(int idx)
+{
+    if (idx < 0 || idx >= toggle_row_count) return;
+    setting_row_t *t = &toggle_rows[idx];
+    if (!t->track_img || !t->text_label) return;
+
+    /* Show the input container, re-parent label back inside it */
+    lv_obj_clear_flag(t->track_img, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_parent(t->text_label, t->track_img);
+    lv_obj_set_style_text_font(t->text_label, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(t->text_label, EF_FG, LV_PART_MAIN);
+    lv_obj_center(t->text_label);
+    lv_label_set_text(t->text_label, (t->text_buf && t->text_buf[0]) ? t->text_buf : "---");
+}
+
+static void net_update_visibility(void)
+{
+    dash_net_info_t info;
+    dash_network_get_info(&info);
+
+    /* IP/Subnet/Gateway: readout when DHCP on, editable when off */
+    if (dash_settings.dhcp_enabled) {
+        net_set_row_readonly(net_static_ip_row, info.ip);
+        net_set_row_readonly(net_static_mask_row, info.mask);
+        net_set_row_readonly(net_static_gw_row, info.gateway);
+    } else {
+        net_set_row_editable(net_static_ip_row);
+        net_set_row_editable(net_static_mask_row);
+        net_set_row_editable(net_static_gw_row);
+    }
+
+    /* DNS: when custom off, show live values as readouts.
+     * When custom on, show editable fields. */
+    if (dash_settings.custom_dns) {
+        lv_obj_clear_flag(toggle_rows[net_dns1_row].row, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(toggle_rows[net_dns2_row].row, LV_OBJ_FLAG_HIDDEN);
+        net_set_row_editable(net_dns1_row);
+        net_set_row_editable(net_dns2_row);
+    } else {
+        lv_obj_clear_flag(toggle_rows[net_dns1_row].row, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(toggle_rows[net_dns2_row].row, LV_OBJ_FLAG_HIDDEN);
+        net_set_row_readonly(net_dns1_row, info.dns1);
+        net_set_row_readonly(net_dns2_row, info.dns2);
+    }
+}
+
+/* Snapshot of network settings — restored on close if not applied */
+static struct {
+    bool dhcp_enabled;
+    char static_ip[16];
+    char static_mask[16];
+    char static_gateway[16];
+    bool custom_dns;
+    char dns1[16];
+    char dns2[16];
+} net_snapshot;
+static bool net_applied = false;
+
+static void net_save_snapshot(void)
+{
+    net_snapshot.dhcp_enabled = dash_settings.dhcp_enabled;
+    memcpy(net_snapshot.static_ip, dash_settings.static_ip, 16);
+    memcpy(net_snapshot.static_mask, dash_settings.static_mask, 16);
+    memcpy(net_snapshot.static_gateway, dash_settings.static_gateway, 16);
+    net_snapshot.custom_dns = dash_settings.custom_dns;
+    memcpy(net_snapshot.dns1, dash_settings.dns1, 16);
+    memcpy(net_snapshot.dns2, dash_settings.dns2, 16);
+    net_applied = false;
+}
+
+static void net_restore_snapshot(void)
+{
+    if (net_applied) return;
+    dash_settings.dhcp_enabled = net_snapshot.dhcp_enabled;
+    memcpy(dash_settings.static_ip, net_snapshot.static_ip, 16);
+    memcpy(dash_settings.static_mask, net_snapshot.static_mask, 16);
+    memcpy(dash_settings.static_gateway, net_snapshot.static_gateway, 16);
+    dash_settings.custom_dns = net_snapshot.custom_dns;
+    memcpy(dash_settings.dns1, net_snapshot.dns1, 16);
+    memcpy(dash_settings.dns2, net_snapshot.dns2, 16);
+}
+
+static void on_ftp_toggle(void)
+{
+    if (dash_settings.ftp_enabled)
+        dash_ftp_start();
+    else
+        dash_ftp_stop();
+}
+
+static void on_dhcp_toggle(void)
+{
+    /* When switching to static, prefill from current DHCP-assigned values */
+    if (!dash_settings.dhcp_enabled) {
+        dash_net_info_t info;
+        dash_network_get_info(&info);
+        if (!dash_settings.static_ip[0] && info.ip[0])
+            strncpy(dash_settings.static_ip, info.ip, sizeof(dash_settings.static_ip) - 1);
+        if (!dash_settings.static_mask[0] && info.mask[0])
+            strncpy(dash_settings.static_mask, info.mask, sizeof(dash_settings.static_mask) - 1);
+        if (!dash_settings.static_gateway[0] && info.gateway[0])
+            strncpy(dash_settings.static_gateway, info.gateway, sizeof(dash_settings.static_gateway) - 1);
+        /* Refresh text labels */
+        for (int i = 0; i < toggle_row_count; i++) {
+            setting_row_t *t = &toggle_rows[i];
+            if (t->type == ROW_TEXT && t->text_label && t->text_buf)
+                lv_label_set_text(t->text_label, t->text_buf[0] ? t->text_buf : "---");
+        }
+    }
+    net_update_visibility();
+}
+
+static void on_dns_toggle(void)
+{
+    /* When enabling custom DNS, prefill from current values */
+    if (dash_settings.custom_dns) {
+        dash_net_info_t info;
+        dash_network_get_info(&info);
+        if (!dash_settings.dns1[0] && info.dns1[0])
+            strncpy(dash_settings.dns1, info.dns1, sizeof(dash_settings.dns1) - 1);
+        if (!dash_settings.dns2[0] && info.dns2[0])
+            strncpy(dash_settings.dns2, info.dns2, sizeof(dash_settings.dns2) - 1);
+        for (int i = 0; i < toggle_row_count; i++) {
+            setting_row_t *t = &toggle_rows[i];
+            if (t->type == ROW_TEXT && t->text_label && t->text_buf)
+                lv_label_set_text(t->text_label, t->text_buf[0] ? t->text_buf : "---");
+        }
+    }
+    net_update_visibility();
+}
+
+static void on_apply_network(void)
+{
+    net_applied = true;
+    dash_network_apply();
+    dash_settings_apply(false);
+}
+
 static void build_network(lv_obj_t *body)
 {
-    section_header(body, "Network", "FTP server and IP configuration.");
+    section_header(body, "Network", "IP configuration and FTP server.");
     reset_toggle_rows();
+    net_save_snapshot();
 
-    create_toggle_row(body, "FTP Server",
+    /* FTP Server toggle — runtime start/stop */
+    create_toggle_row_cb(body, "FTP Server",
         "Port 21 " LV_SYMBOL_DUMMY " user: xbox " LV_SYMBOL_DUMMY " pass: xbox",
-        &dash_settings.ftp_enabled, true);
+        &dash_settings.ftp_enabled, on_ftp_toggle, true);
 
-#ifdef NXDK
-    create_readout_new(body, "IP Address", xbox_get_ip_address(), false);
-#else
-    create_readout_new(body, "IP Address", "127.0.0.1", false);
-#endif
+    /* Status */
+    dash_net_info_t info;
+    dash_network_get_info(&info);
 
-    create_readout_new(body, "Link Speed", "100 Mbps", false);
+    char status[48];
+    if (info.link_up)
+        lv_snprintf(status, sizeof(status), "Connected (%s)", info.dhcp_active ? "DHCP" : "Static");
+    else
+        lv_snprintf(status, sizeof(status), "Disconnected");
+    create_readout_new(body, "Status", status, false);
+
+    /* DHCP toggle */
+    create_toggle_row_cb(body, "DHCP",
+        "Automatic IP assignment from router.",
+        &dash_settings.dhcp_enabled, on_dhcp_toggle, false);
+
+    /* IP / Subnet / Gateway — always visible.
+     * DHCP on: shows live values, read-only (skipped in navigation).
+     * DHCP off: editable with numeric keyboard. */
+    create_numeric_text_row(body, "IP Address", NULL,
+        dash_settings.static_ip, sizeof(dash_settings.static_ip), false);
+    net_static_ip_row = toggle_row_count - 1;
+
+    create_numeric_text_row(body, "Subnet Mask", NULL,
+        dash_settings.static_mask, sizeof(dash_settings.static_mask), false);
+    net_static_mask_row = toggle_row_count - 1;
+
+    create_numeric_text_row(body, "Gateway", NULL,
+        dash_settings.static_gateway, sizeof(dash_settings.static_gateway), false);
+    net_static_gw_row = toggle_row_count - 1;
+
+    /* Custom DNS toggle */
+    create_toggle_row_cb(body, "Custom DNS",
+        "Override automatic DNS servers.",
+        &dash_settings.custom_dns, on_dns_toggle, false);
+
+    /* DNS fields — hidden when custom DNS off */
+    create_numeric_text_row(body, "DNS 1", NULL,
+        dash_settings.dns1, sizeof(dash_settings.dns1), false);
+    net_dns1_row = toggle_row_count - 1;
+    create_numeric_text_row(body, "DNS 2", NULL,
+        dash_settings.dns2, sizeof(dash_settings.dns2), false);
+    net_dns2_row = toggle_row_count - 1;
+
+    /* Apply button */
+    create_action_row(body, "Apply Network Settings",
+        "Save and apply changes now.", on_apply_network, false);
+
+    /* Link speed at the bottom */
+    char speed[16];
+    lv_snprintf(speed, sizeof(speed), "%d Mbps", info.link_speed_mbps);
+    create_readout_new(body, "Link Speed", speed, false);
+
+    /* Set initial visibility and read-only state */
+    net_update_visibility();
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -488,7 +788,8 @@ static void build_about(lv_obj_t *body)
  * ══════════════════════════════════════════════════════════════════ */
 static void settings_on_close(void)
 {
-    /* Save settings when panel closes */
+    /* Restore unapplied network changes before saving */
+    net_restore_snapshot();
     dash_settings_apply(false);
     dash_statusbar_refresh();
 }

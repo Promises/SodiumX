@@ -18,6 +18,10 @@
 
 #include "lwip/api.h"
 #include "lwip/tcpip.h"
+#include "lwip/netifapi.h"
+#include "lwip/dhcp.h"
+#include "lwip/dns.h"
+#include "lwip/netif.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/netif.h"
 #include "ftpd/ftp.h"
@@ -37,10 +41,14 @@ void xbox_sntp_set_time(uint32_t ntp_s)
     NtSetSystemTime(&ntp_nt_time, NULL);
 }
 
+static bool ftp_running = false;
+
 static void ftp_startup(void *param)
 {
     DbgPrint("STARTING FTP\n");
+    ftp_running = true;
     ftp_server();
+    ftp_running = false;
 }
 
 static void sntp_startup(void *param)
@@ -89,10 +97,75 @@ static WINAPI DWORD network_startup(LPVOID param)
 {
     DbgPrint("STARTING NETWORK\n");
     nxNetInit(NULL);
-    sys_thread_new("ftp_startup", ftp_startup, NULL, DEFAULT_THREAD_STACKSIZE, DEFAULT_THREAD_PRIO);
+    if (dash_settings.ftp_enabled) {
+        sys_thread_new("ftp_startup", ftp_startup, NULL, DEFAULT_THREAD_STACKSIZE, DEFAULT_THREAD_PRIO);
+    }
     //SNTP should be started in TCPIP thread
     tcpip_callback(sntp_startup, NULL);
     return 0;
+}
+
+void dash_ftp_start(void)
+{
+    if (ftp_running) return;
+    sys_thread_new("ftp_startup", ftp_startup, NULL, DEFAULT_THREAD_STACKSIZE, DEFAULT_THREAD_PRIO);
+}
+
+void dash_ftp_stop(void)
+{
+    if (!ftp_running) return;
+    ftp_server_stop();
+}
+
+void dash_network_apply(void)
+{
+    struct netif *netif = netif_default;
+    if (!netif) return;
+
+    if (dash_settings.dhcp_enabled) {
+        netifapi_dhcp_release_and_stop(netif);
+        netifapi_dhcp_start(netif);
+    } else {
+        ip4_addr_t ip, mask, gw;
+        ip4addr_aton(dash_settings.static_ip, &ip);
+        ip4addr_aton(dash_settings.static_mask, &mask);
+        ip4addr_aton(dash_settings.static_gateway, &gw);
+        netifapi_dhcp_release_and_stop(netif);
+        netifapi_netif_set_addr(netif, &ip, &mask, &gw);
+    }
+
+    if (dash_settings.custom_dns) {
+        if (dash_settings.dns1[0]) {
+            ip_addr_t dns;
+            ipaddr_aton(dash_settings.dns1, &dns);
+            dns_setserver(0, &dns);
+        }
+        if (dash_settings.dns2[0]) {
+            ip_addr_t dns;
+            ipaddr_aton(dash_settings.dns2, &dns);
+            dns_setserver(1, &dns);
+        }
+    }
+}
+
+void dash_network_get_info(dash_net_info_t *info)
+{
+    memset(info, 0, sizeof(*info));
+    struct netif *netif = netif_default;
+    if (!netif) return;
+
+    info->link_up = netif_is_up(netif) && netif_is_link_up(netif);
+    info->dhcp_active = dhcp_supplied_address(netif);
+    info->link_speed_mbps = 100; /* Xbox ethernet is always 100Mbps */
+
+    ip4addr_ntoa_r(netif_ip4_addr(netif), info->ip, sizeof(info->ip));
+    ip4addr_ntoa_r(netif_ip4_netmask(netif), info->mask, sizeof(info->mask));
+    ip4addr_ntoa_r(netif_ip4_gw(netif), info->gateway, sizeof(info->gateway));
+
+    const ip_addr_t *d1 = dns_getserver(0);
+    const ip_addr_t *d2 = dns_getserver(1);
+    if (d1) ipaddr_ntoa_r(d1, info->dns1, sizeof(info->dns1));
+    if (d2) ipaddr_ntoa_r(d2, info->dns2, sizeof(info->dns2));
 }
 
 void platform_init(int *w, int *h)

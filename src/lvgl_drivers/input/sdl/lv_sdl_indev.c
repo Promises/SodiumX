@@ -348,6 +348,17 @@ void lv_port_indev_get_stick(int *x, int *y)
     }
 }
 
+void lv_port_indev_get_rstick(int *x, int *y)
+{
+    if (pad) {
+        *x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX);
+        *y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY);
+    } else {
+        *x = 0;
+        *y = 0;
+    }
+}
+
 void lv_port_indev_get_triggers(int *lt, int *rt)
 {
     if (pad) {

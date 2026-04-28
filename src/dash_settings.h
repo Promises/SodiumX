@@ -12,10 +12,12 @@ extern "C" {
 
 #define DASH_SETTINGS_VERSION_V2 0x02
 #define DASH_SETTINGS_VERSION_V3 0x03
-#define DASH_SETTINGS_VERSION    0x04
+#define DASH_SETTINGS_VERSION_V4 0x04
+#define DASH_SETTINGS_VERSION    0x05
 #define DASH_SETTINGS_MAGIC      (0xBEEF0000 + DASH_SETTINGS_VERSION)
 #define DASH_SETTINGS_MAGIC_V2   (0xBEEF0000 + DASH_SETTINGS_VERSION_V2)
 #define DASH_SETTINGS_MAGIC_V3   (0xBEEF0000 + DASH_SETTINGS_VERSION_V3)
+#define DASH_SETTINGS_MAGIC_V4   (0xBEEF0000 + DASH_SETTINGS_VERSION_V4)
 
 /* Legacy v2 struct for migration */
 typedef struct dash_settings_v2 {
@@ -60,7 +62,41 @@ typedef struct dash_settings_v3 {
     uint8_t _padding[16];
 } dash_settings_v3_t;
 
-/* Current v4 struct */
+/* Legacy v4 struct for migration */
+typedef struct dash_settings_v4 {
+    unsigned int magic;
+    bool use_fahrenheit;
+    bool auto_launch_dvd;
+    bool show_debug_info;
+    int startup_page_index;
+    int theme_colour;
+    int max_recent_items;
+    int items_per_row;
+    char earliest_recent_date[20];
+    char sort_strings[4096];
+    uint8_t accent_index;
+    bool show_fps_overlay;
+    bool show_controller_hints;
+    bool show_clock_chip;
+    bool show_network_chip;
+    bool show_temp_chip;
+    bool animated_background;
+    bool backdrop_blur;
+    bool tile_parallax;
+    bool film_grain;
+    uint8_t resolution_mode;
+    uint8_t audio_output;
+    bool ui_sounds;
+    bool ftp_enabled;
+    char backup_server[64];
+    uint16_t backup_port;
+    bool backup_on_start;
+    bool backup_before_launch;
+    bool disable_vsync;
+    uint8_t _padding_v4[15];
+} dash_settings_v4_t;
+
+/* Current v5 struct */
 typedef struct dash_settings {
     unsigned int magic;
     bool use_fahrenheit;
@@ -92,6 +128,15 @@ typedef struct dash_settings {
     uint16_t backup_port;          /* default 9877 */
     bool backup_on_start;          /* auto-backup on dashboard boot */
     bool backup_before_launch;     /* backup before launching a game */
+    bool disable_vsync;            /* skip pb_wait_for_vbl() for testing */
+    /* ── v5 fields: network configuration ── */
+    bool dhcp_enabled;             /* true = DHCP, false = static IP */
+    char static_ip[16];            /* e.g. "192.168.1.100" */
+    char static_mask[16];          /* e.g. "255.255.255.0" */
+    char static_gateway[16];       /* e.g. "192.168.1.1" */
+    bool custom_dns;               /* true = use dns1/dns2, false = auto */
+    char dns1[16];                 /* primary DNS server */
+    char dns2[16];                 /* secondary DNS server */
     uint8_t _padding[16];          /* future expansion */
 } dash_settings_t;
 

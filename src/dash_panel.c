@@ -16,6 +16,29 @@ static lv_obj_t *panel_card = NULL;
 static lv_obj_t *panel_body = NULL;
 static lv_obj_t *nav_items[DASH_PANEL_MAX_SECTIONS];
 
+/* ── Right stick scroll ── */
+#define RSTICK_DEADZONE  8192
+#define RSTICK_SCROLL_SPEED 6   /* px per poll tick at full deflection */
+static lv_timer_t *scroll_timer = NULL;
+
+static void panel_scroll_poll(lv_timer_t *t)
+{
+    (void)t;
+    if (!panel_open || !panel_body) return;
+
+    int rx, ry;
+    /* Re-use the stick query but we need right stick — add a helper */
+    lv_port_indev_get_rstick(&rx, &ry);
+
+    if (abs(ry) < RSTICK_DEADZONE) return;
+
+    /* Scale: map +-32768 to scroll pixels */
+    int scroll_px = (ry * RSTICK_SCROLL_SPEED) / 32768;
+    if (scroll_px == 0) scroll_px = (ry > 0) ? 1 : -1;
+
+    lv_obj_scroll_by(panel_body, 0, -scroll_px, LV_ANIM_OFF);
+}
+
 /* ── Nav highlight ── */
 static void update_nav(void)
 {
@@ -79,6 +102,11 @@ void dash_panel_close(void)
     panel_card = NULL;
     panel_body = NULL;
     cfg = NULL;
+
+    if (scroll_timer) {
+        lv_timer_del(scroll_timer);
+        scroll_timer = NULL;
+    }
 
     dash_focus_pop_depth();
 }
@@ -258,6 +286,9 @@ void dash_panel_open(const dash_panel_config_t *config)
     lv_group_add_obj(lv_group_get_default(), panel_card);
     lv_obj_add_event_cb(panel_card, panel_key_handler, LV_EVENT_KEY, NULL);
     dash_focus_change_depth(panel_card);
+
+    /* Right stick scroll timer */
+    scroll_timer = lv_timer_create(panel_scroll_poll, 16, NULL);
 }
 
 int dash_panel_get_section(void)

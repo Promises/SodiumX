@@ -74,5 +74,6 @@ typedef struct
  * - The application is running
  */
 void ftp_server(void);
+void ftp_server_stop(void);
 
 #endif // _FTPS_H_

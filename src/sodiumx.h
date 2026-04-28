@@ -46,6 +46,7 @@ int strcasecmp(const char *s1, const char *s2);
 #include "dash_context_menu.h"
 #include "dash_overlay_menu.h"
 #include "dash_keyboard.h"
+#include "dash_perf.h"
 
 #include "lvgl_drivers/lv_port_disp.h"
 #include "lvgl_drivers/lv_port_indev.h"
@@ -193,7 +194,10 @@ typedef struct
 typedef struct
 {
     int db_id;
+    int rail_index;  /* 1-based index in the rail (for O(1) lookup) */
     char title[MAX_META_LEN];
+    char meta_subtitle[128]; /* cached "Developer · Year · Genre" — filled on first focus */
+    bool meta_cached;
     jpg_info_t *jpg_info;
 } title_t;
 
@@ -227,6 +231,23 @@ void *lx_mem_alloc(size_t size);
 void *lx_mem_realloc(void *data, size_t new_size);
 void lx_mem_free(void *data);
 void lx_mem_usage(uint32_t *used, uint32_t *capacity);
+
+/* Network / FTP platform functions */
+typedef struct {
+    char ip[16];
+    char mask[16];
+    char gateway[16];
+    char dns1[16];
+    char dns2[16];
+    bool dhcp_active;
+    bool link_up;
+    int  link_speed_mbps;
+} dash_net_info_t;
+
+void dash_network_apply(void);
+void dash_network_get_info(dash_net_info_t *info);
+void dash_ftp_start(void);
+void dash_ftp_stop(void);
 
 void dash_focus_set_final(lv_obj_t *focus);
 void dash_focus_change_depth(lv_obj_t *new_focus);

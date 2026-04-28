@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "ftp.h"
 #include "ftp_server.h"
 #include "ftp_file.h"
@@ -30,6 +31,8 @@
 // static variables
 static const char *no_conn_allowed = "421 No more connections allowed\r\n";
 static server_stru_t ftp_links[FTP_NBR_CLIENTS];
+static volatile bool ftp_stop_flag = false;
+static struct netconn *ftp_listen_conn = NULL;
 
 // single ftp connection loop
 static void ftp_task(void *param)
@@ -80,6 +83,8 @@ void ftp_server(void)
 	struct netconn *ftp_client_conn;
 	uint8_t index = 0;
 
+	ftp_stop_flag = false;
+
 	// Create the TCP connection handle
 	ftp_srv_conn = netconn_new(NETCONN_TCP);
 
@@ -93,13 +98,15 @@ void ftp_server(void)
 		return;
 	}
 
+	ftp_listen_conn = ftp_srv_conn;
+
 	// Bind to port 21 (FTP) with default IP address
 	netconn_bind(ftp_srv_conn, NULL, FTP_SERVER_PORT);
 
 	// put the connection into LISTEN state
 	netconn_listen(ftp_srv_conn);
 
-	while (1)
+	while (!ftp_stop_flag)
 	{
 		// Wait for incoming connections
 		if (netconn_accept(ftp_srv_conn, &ftp_client_conn) == ERR_OK)
@@ -146,4 +153,16 @@ void ftp_server(void)
 
 	// delete the connection.
 	netconn_delete(ftp_srv_conn);
+	ftp_listen_conn = NULL;
+}
+
+void ftp_server_stop(void)
+{
+	ftp_stop_flag = true;
+	/* Close the listening socket to unblock netconn_accept() */
+	if (ftp_listen_conn) {
+		netconn_close(ftp_listen_conn);
+		netconn_delete(ftp_listen_conn);
+		ftp_listen_conn = NULL;
+	}
 }
