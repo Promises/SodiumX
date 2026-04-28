@@ -4,7 +4,7 @@
 // Works on SDL2 (desktop) and nxdk (Xbox) builds.
 //
 // Protocol (text lines, \n terminated):
-//   → key <name>         Inject keypress (right, left, up, down, enter, esc, s, y, b, pageup, pagedown, q, e)
+//   → key <name>         Inject keypress: a, b, x, y, start, back, up, down, left, right, white, black, lt, rt
 //   → screenshot         Save BMP and send binary: "OK <size>\n<raw bmp bytes>"
 //   → log on             Start streaming logs to this client
 //   → log off            Stop streaming logs

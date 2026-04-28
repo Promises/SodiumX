@@ -88,7 +88,7 @@ static void panel_key_handler(lv_event_t *event)
 {
     lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
 
-    if (key == LV_KEY_ESC) {
+    if (key == LV_KEY_ESC || key == DASH_KEY_BACK) {
         if (right_focused) {
             /* B in right pane → back to left nav */
             const dash_panel_section_t *sec = &cfg->sections[active_section];

@@ -39,10 +39,10 @@ static void synop_close(lv_event_t *event)
 {
     lv_obj_t *menu = lv_event_get_target(event);
     lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
-    if (key == DASH_INFO_PAGE)
+    if (key == DASH_INFO_PAGE || key == DASH_KEY_BACK)
     {
-        static int key = LV_KEY_ESC;
-        lv_event_send(menu, LV_EVENT_KEY, &key);
+        static int esc_key = LV_KEY_ESC;
+        lv_event_send(menu, LV_EVENT_KEY, &esc_key);
     }
 }
 

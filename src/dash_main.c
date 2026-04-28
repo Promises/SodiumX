@@ -201,6 +201,7 @@ void dash_init(void)
         dash_scroller_snapshot_register();
         dash_overlay_menu_snapshot_register();
         dash_panel_snapshot_register();
+        dash_keyboard_init();
         snapshots_registered = true;
     }
 
@@ -618,7 +619,7 @@ static void tab_nav_key_handler(lv_event_t *event)
         /* Confirm — exit tab nav, stay on current tab/page */
         dash_tab_bar_exit_nav(false);
     }
-    else if (key == LV_KEY_ESC)
+    else if (key == LV_KEY_ESC || key == DASH_KEY_BACK)
     {
         /* Cancel — restore original tab/page */
         dash_tab_bar_exit_nav(true);

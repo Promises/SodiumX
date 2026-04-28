@@ -171,8 +171,8 @@ def key(name: str, count: int = 1, delay: float = 0.3) -> str:
     Send a controller/keyboard input to the dashboard.
 
     Args:
-        name: Key name — one of: right, left, up, down, enter, esc, start,
-              pageup, pagedown, lt, rt, a, b, y, s
+        name: Key name — one of: a, b, x, y, start, back, up, down, left,
+              right, white, black, lt, rt
         count: Number of times to press (default 1).
         delay: Seconds to wait between presses (default 0.3).
     """

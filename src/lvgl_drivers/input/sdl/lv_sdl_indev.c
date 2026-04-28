@@ -337,6 +337,28 @@ void lv_port_indev_init(bool use_mouse_cursor)
     quit_event = LV_QUIT_NONE;
 }
 
+void lv_port_indev_get_stick(int *x, int *y)
+{
+    if (pad) {
+        *x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
+        *y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
+    } else {
+        *x = 0;
+        *y = 0;
+    }
+}
+
+void lv_port_indev_get_triggers(int *lt, int *rt)
+{
+    if (pad) {
+        *lt = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+        *rt = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+    } else {
+        *lt = 0;
+        *rt = 0;
+    }
+}
+
 void lv_port_indev_deinit(void)
 {
     SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);

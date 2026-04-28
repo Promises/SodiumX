@@ -79,7 +79,7 @@ static void browser_key_handler(lv_event_t *event)
     dash_browser_info_t *dinfo = lv_event_get_user_data(event);
     lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
 
-    if (key == LV_KEY_ESC)
+    if (key == LV_KEY_ESC || key == DASH_KEY_BACK)
     {
         browser_close(dinfo);
         return;

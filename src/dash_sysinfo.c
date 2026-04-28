@@ -104,7 +104,7 @@ static void sysinfo_update_cb(lv_timer_t *t)
 static void sysinfo_close_handler(lv_event_t *event)
 {
     lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
-    if (key == LV_KEY_ESC)
+    if (key == LV_KEY_ESC || key == DASH_KEY_BACK)
     {
         if (update_timer)
         {

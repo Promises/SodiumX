@@ -478,7 +478,7 @@ static void settings_key_handler(lv_event_t *event)
 {
     lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
 
-    if (key == LV_KEY_ESC)
+    if (key == LV_KEY_ESC || key == DASH_KEY_BACK)
     {
         /* Save settings and close */
         dash_settings_apply(false);

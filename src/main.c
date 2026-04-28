@@ -28,6 +28,7 @@ keyboard_map_t lvgl_keyboard_map[] =
     {.sdl_map = SDLK_y, .lvgl_map = DASH_INFO_PAGE},           /* Y = synopsis/details */
     {.sdl_map = SDLK_s, .lvgl_map = DASH_SETTINGS_PAGE},       /* S = START (menu) */
     {.sdl_map = SDLK_b, .lvgl_map = LV_KEY_ESC},               /* B = back */
+    {.sdl_map = SDLK_k, .lvgl_map = DASH_KEY_BACK},              /* K = BACK */
     {.sdl_map = SDLK_q, .lvgl_map = 'L'},                      /* Q = LT (fast scroll left) */
     {.sdl_map = SDLK_e, .lvgl_map = 'R'},                      /* E = RT (fast scroll right) */
     {.sdl_map = SDLK_TAB, .lvgl_map = DASH_NEXT_PAGE},         /* Tab = next tab */
@@ -40,7 +41,7 @@ gamecontroller_map_t lvgl_gamecontroller_map[] =
     {.sdl_map = SDL_CONTROLLER_BUTTON_B, .lvgl_map = LV_KEY_ESC},
     {.sdl_map = SDL_CONTROLLER_BUTTON_X, .lvgl_map = DASH_CONTEXT_PAGE},
     {.sdl_map = SDL_CONTROLLER_BUTTON_Y, .lvgl_map = DASH_INFO_PAGE},
-    {.sdl_map = SDL_CONTROLLER_BUTTON_BACK, .lvgl_map = DASH_INFO_PAGE},
+    {.sdl_map = SDL_CONTROLLER_BUTTON_BACK, .lvgl_map = DASH_KEY_BACK},
     {.sdl_map = SDL_CONTROLLER_BUTTON_GUIDE, .lvgl_map = 0},
     {.sdl_map = SDL_CONTROLLER_BUTTON_START, .lvgl_map = DASH_SETTINGS_PAGE},
     {.sdl_map = SDL_CONTROLLER_BUTTON_LEFTSTICK, .lvgl_map = 0},

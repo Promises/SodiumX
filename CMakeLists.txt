@@ -74,6 +74,7 @@ set(SOURCES
     src/dash_backup.c
     src/dash_context_menu.c
     src/dash_overlay_menu.c
+    src/dash_keyboard.c
     src/dash_panel.c
     src/dash_settings_new.c
     src/dash_backdrop.c

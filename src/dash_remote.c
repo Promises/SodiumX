@@ -62,26 +62,33 @@ static void set_nonblocking(SOCKET_TYPE fd)
 /* ── Key name → LVGL key mapping ── */
 static int key_from_name(const char *name)
 {
-    if (strcmp(name, "right") == 0)    return LV_KEY_RIGHT;
-    if (strcmp(name, "left") == 0)     return LV_KEY_LEFT;
+    /* D-pad */
     if (strcmp(name, "up") == 0)       return LV_KEY_UP;
     if (strcmp(name, "down") == 0)     return LV_KEY_DOWN;
-    if (strcmp(name, "enter") == 0)    return LV_KEY_ENTER;
-    if (strcmp(name, "a") == 0)        return LV_KEY_ENTER;
-    if (strcmp(name, "esc") == 0)      return LV_KEY_ESC;
-    if (strcmp(name, "back") == 0)     return LV_KEY_ESC;
-    if (strcmp(name, "b") == 0)        return LV_KEY_ESC;
-    if (strcmp(name, "start") == 0)    return DASH_SETTINGS_PAGE;
-    if (strcmp(name, "s") == 0)        return DASH_SETTINGS_PAGE;
-    if (strcmp(name, "info") == 0)     return DASH_INFO_PAGE;
-    if (strcmp(name, "y") == 0)        return DASH_INFO_PAGE;
-    if (strcmp(name, "x") == 0)        return DASH_CONTEXT_PAGE;
-    if (strcmp(name, "pageup") == 0)   return DASH_NEXT_PAGE;
-    if (strcmp(name, "pagedown") == 0) return DASH_PREV_PAGE;
-    if (strcmp(name, "lt") == 0)       return 'L';
-    if (strcmp(name, "rt") == 0)       return 'R';
-    if (strcmp(name, "q") == 0)        return 'L';
-    if (strcmp(name, "e") == 0)        return 'R';
+    if (strcmp(name, "left") == 0)     return LV_KEY_LEFT;
+    if (strcmp(name, "right") == 0)    return LV_KEY_RIGHT;
+    /* Face buttons */
+    if (strcmp(name, "a") == 0)        return DASH_KEY_A;
+    if (strcmp(name, "b") == 0)        return DASH_KEY_B;
+    if (strcmp(name, "x") == 0)        return DASH_KEY_X;
+    if (strcmp(name, "y") == 0)        return DASH_KEY_Y;
+    /* Menu buttons */
+    if (strcmp(name, "start") == 0)    return DASH_KEY_START;
+    if (strcmp(name, "back") == 0)     return DASH_KEY_BACK;
+    /* Shoulder buttons (original Xbox: White/Black) */
+    if (strcmp(name, "white") == 0)    return DASH_KEY_WHITE;
+    if (strcmp(name, "black") == 0)    return DASH_KEY_BLACK;
+    /* Triggers */
+    if (strcmp(name, "lt") == 0)       return DASH_KEY_LT;
+    if (strcmp(name, "rt") == 0)       return DASH_KEY_RT;
+    /* Legacy aliases */
+    if (strcmp(name, "enter") == 0)    return DASH_KEY_A;
+    if (strcmp(name, "esc") == 0)      return DASH_KEY_B;
+    if (strcmp(name, "s") == 0)        return DASH_KEY_START;
+    if (strcmp(name, "pageup") == 0)   return DASH_KEY_BLACK;
+    if (strcmp(name, "pagedown") == 0) return DASH_KEY_WHITE;
+    if (strcmp(name, "q") == 0)        return DASH_KEY_LT;
+    if (strcmp(name, "e") == 0)        return DASH_KEY_RT;
     return 0;
 }
 

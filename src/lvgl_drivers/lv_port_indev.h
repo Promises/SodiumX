@@ -58,6 +58,8 @@ void lv_port_indev_init(bool use_mouse_cursor);
 void lv_port_indev_deinit(void);
 void lv_set_quit(lv_quit_event_t event);
 lv_quit_event_t lv_get_quit(void);
+void lv_port_indev_get_stick(int *x, int *y);
+void lv_port_indev_get_triggers(int *lt, int *rt);
 /**********************
  *      MACROS
  **********************/

@@ -45,6 +45,7 @@ int strcasecmp(const char *s1, const char *s2);
 #include "dash_panel.h"
 #include "dash_context_menu.h"
 #include "dash_overlay_menu.h"
+#include "dash_keyboard.h"
 
 #include "lvgl_drivers/lv_port_disp.h"
 #include "lvgl_drivers/lv_port_indev.h"
@@ -139,11 +140,25 @@ int strcasecmp(const char *s1, const char *s2);
 #define DASH_MAX_PATH MAX_PATH
 #endif
 
-#define DASH_NEXT_PAGE '>'
-#define DASH_PREV_PAGE '<'
-#define DASH_SETTINGS_PAGE 's'
-#define DASH_INFO_PAGE 'i'
-#define DASH_CONTEXT_PAGE 'x'
+/* Controller button → LVGL key codes.
+ * Each physical button gets a unique code so overlays can distinguish them. */
+#define DASH_KEY_A        LV_KEY_ENTER   /* A button */
+#define DASH_KEY_B        LV_KEY_ESC     /* B button */
+#define DASH_KEY_X        'x'            /* X button */
+#define DASH_KEY_Y        'i'            /* Y button */
+#define DASH_KEY_START    's'            /* START button */
+#define DASH_KEY_BACK     'k'            /* BACK button */
+#define DASH_KEY_WHITE    '<'            /* White (left shoulder) */
+#define DASH_KEY_BLACK    '>'            /* Black (right shoulder) */
+#define DASH_KEY_LT       'L'            /* Left trigger */
+#define DASH_KEY_RT       'R'            /* Right trigger */
+
+/* Semantic aliases used by existing code */
+#define DASH_NEXT_PAGE     DASH_KEY_BLACK
+#define DASH_PREV_PAGE     DASH_KEY_WHITE
+#define DASH_SETTINGS_PAGE DASH_KEY_START
+#define DASH_INFO_PAGE     DASH_KEY_Y
+#define DASH_CONTEXT_PAGE  DASH_KEY_X
 #define DASH_PREV_TAB 't'
 #define DASH_NEXT_TAB 'T'
 

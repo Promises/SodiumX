@@ -50,7 +50,7 @@ static void key_handler(lv_event_t *event)
 {
     lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
 
-    if (key == LV_KEY_ESC || (cfg.close_key && key == (lv_key_t)cfg.close_key)) {
+    if (key == LV_KEY_ESC || key == DASH_KEY_BACK || (cfg.close_key && key == (lv_key_t)cfg.close_key)) {
         dash_overlay_menu_close();
         return;
     }

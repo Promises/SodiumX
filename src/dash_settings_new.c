@@ -213,6 +213,14 @@ static void update_toggle_visuals(void)
     }
 }
 
+static void kb_done_refresh_text(void)
+{
+    if (toggle_row_selected < 0 || toggle_row_selected >= toggle_row_count) return;
+    setting_row_t *t = &toggle_rows[toggle_row_selected];
+    if (t->type == ROW_TEXT && t->text_label && t->text_buf)
+        lv_label_set_text(t->text_label, t->text_buf[0] ? t->text_buf : "---");
+}
+
 static void toggle_current(void)
 {
     if (toggle_row_selected < 0 || toggle_row_selected >= toggle_row_count) return;
@@ -221,7 +229,8 @@ static void toggle_current(void)
     if (t->type == ROW_TOGGLE) {
         *t->value = !*t->value;
     } else if (t->type == ROW_TEXT) {
-        // TODO: Keyboard input
+        dash_keyboard_open(t->text_buf, t->text_buf_size, DASH_KB_MODE_FULL,
+                           kb_done_refresh_text);
     }
     update_toggle_visuals();
 }

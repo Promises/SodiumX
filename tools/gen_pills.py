@@ -462,4 +462,41 @@ slice_pill("btn_highlight", EF_GREEN, 255, (0xff, 0xff, 0xff), 180, border_w=2)
 # Busy: chip_bg fill, accent border
 slice_pill("btn_busy", CHIP_BG, 100, EF_GREEN, 100, border_w=1)
 
+# ── Keyboard hint icons ──
+
+EF_ORANGE   = (0xe6, 0x98, 0x75)
+EF_BG_DIM   = (0x0b, 0x0d, 0x0e)
+
+# White button: cream fill, dark border, 22px circle
+kb_btn_d = 22
+kb_white = render_roundrect(kb_btn_d, kb_btn_d, kb_btn_d // 2, 2,
+    EF_FG, 255, EF_BG_DIM, 255)
+emit_array("pill_kb_white", kb_white, kb_btn_d, kb_btn_d)
+
+# Black button: dark fill, cream border, 22px circle
+kb_black = render_roundrect(kb_btn_d, kb_btn_d, kb_btn_d // 2, 2,
+    EF_BG_DIM, 255, EF_FG, 255)
+emit_array("pill_kb_black", kb_black, kb_btn_d, kb_btn_d)
+
+# LT trigger badge: orange rounded rect 28x20, radius 4
+kb_trig_w, kb_trig_h = 28, 20
+kb_lt = render_roundrect(kb_trig_w, kb_trig_h, 4, 0,
+    EF_ORANGE, 255, EF_ORANGE, 0)
+emit_array("pill_kb_lt", kb_lt, kb_trig_w, kb_trig_h)
+
+# RT trigger badge: same as LT
+emit_array("pill_kb_rt", kb_lt, kb_trig_w, kb_trig_h)
+
+# START pill for keyboard: bordered rounded rect 50x20
+kb_pill_w, kb_pill_h = 50, 20
+kb_start = render_roundrect(kb_pill_w, kb_pill_h, 6, 1,
+    EF_BG_DIM, 220, EF_FG_MUTED, 200)
+emit_array("pill_kb_start", kb_start, kb_pill_w, kb_pill_h)
+
+# BACK pill for keyboard: same dimensions/style
+kb_back_w = 44
+kb_back = render_roundrect(kb_back_w, kb_pill_h, 6, 1,
+    EF_BG_DIM, 220, EF_FG_MUTED, 200)
+emit_array("pill_kb_back", kb_back, kb_back_w, kb_pill_h)
+
 print("/* End of generated pill data */")
