@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 #define MENU_WIDTH (LV_MIN(600, lv_obj_get_width(lv_scr_act()) * 2 / 3))
 #define MENU_HEIGHT (LV_MIN(440, lv_obj_get_height(lv_scr_act()) * 2 / 3))

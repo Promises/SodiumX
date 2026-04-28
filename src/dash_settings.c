@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 #include "dash_pill_data.h"
 
@@ -205,7 +205,7 @@ static lv_obj_t *create_cycle(lv_obj_t *parent, int *value, int count,
     cd->get_name = get_name;
 
     lv_obj_t *lbl = lv_label_create(parent);
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
     cd->label = lbl;
 
@@ -248,14 +248,14 @@ static lv_obj_t *create_setting_row(lv_obj_t *parent, const char *label_text,
     lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *lbl = lv_label_create(left);
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
     lv_label_set_text(lbl, label_text);
 
     if (desc_text)
     {
         lv_obj_t *desc = lv_label_create(left);
-        lv_obj_set_style_text_font(desc, &lv_font_rubik_12, LV_PART_MAIN);
+        lv_obj_set_style_text_font(desc, &dash_font_ui_12, LV_PART_MAIN);
         lv_obj_set_style_text_color(desc, EF_FG_MUTED, LV_PART_MAIN);
         lv_obj_set_width(desc, 360);
         lv_label_set_text(desc, desc_text);
@@ -271,7 +271,7 @@ static void create_readout(lv_obj_t *parent, const char *label_text, const char 
     lv_obj_t *row = create_setting_row(parent, label_text, NULL, first);
 
     lv_obj_t *val = lv_label_create(row);
-    lv_obj_set_style_text_font(val, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(val, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(val, EF_FG, LV_PART_MAIN);
     lv_label_set_text(val, value_text);
 }
@@ -280,11 +280,11 @@ static void create_readout(lv_obj_t *parent, const char *label_text, const char 
 static void build_display_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "Display");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
-    lv_label_set_text(sub, "How LithiumX renders to your TV.");
+    lv_label_set_text(sub, "How SodiumX renders to your TV.");
     lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
 
     /* Animated background */
@@ -304,7 +304,7 @@ static void build_display_section(lv_obj_t *body)
 static void build_network_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "Network");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -321,7 +321,7 @@ static void build_network_section(lv_obj_t *body)
 static void build_audio_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "Audio");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -335,7 +335,7 @@ static void build_audio_section(lv_obj_t *body)
 static void build_system_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "System");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -365,7 +365,7 @@ static lv_obj_t *backup_status_label = NULL;
 static void build_backup_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "Save Backup");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -376,7 +376,7 @@ static void build_backup_section(lv_obj_t *body)
     lv_obj_t *r1 = create_setting_row(body, "Backup Server",
         "IP address of the backup server (set via TOML).", true);
     lv_obj_t *addr_val = lv_label_create(r1);
-    lv_obj_set_style_text_font(addr_val, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(addr_val, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(addr_val, EF_FG, LV_PART_MAIN);
     if (dash_settings.backup_server[0])
         lv_label_set_text(addr_val, dash_settings.backup_server);
@@ -401,7 +401,7 @@ static void build_backup_section(lv_obj_t *body)
     /* Status readout */
     lv_obj_t *r5 = create_setting_row(body, "Status", NULL, false);
     backup_status_label = lv_label_create(r5);
-    lv_obj_set_style_text_font(backup_status_label, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(backup_status_label, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(backup_status_label, EF_FG, LV_PART_MAIN);
     const char *status = dash_backup_get_status();
     lv_label_set_text(backup_status_label, status ? status : "Never run");
@@ -410,7 +410,7 @@ static void build_backup_section(lv_obj_t *body)
 static void build_eeprom_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "EEPROM");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
@@ -425,8 +425,8 @@ static void build_eeprom_section(lv_obj_t *body)
 static void build_about_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
-    lv_label_set_text(title, "About LithiumX");
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
+    lv_label_set_text(title, "About SodiumX");
     lv_obj_t *sub = lv_label_create(body);
     lv_obj_add_style(sub, &body_muted_style, LV_PART_MAIN);
     lv_label_set_text(sub, "A minimal, GPU-accelerated dashboard.");
@@ -590,7 +590,7 @@ void dash_settings_open(void)
 
         lv_obj_t *icon = lv_label_create(item);
         lv_label_set_text(icon, section_icons[i]);
-        lv_obj_set_style_text_font(icon, &lv_font_rubik_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(icon, &dash_font_ui_14, LV_PART_MAIN);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_label_set_text(lbl, section_names[i]);

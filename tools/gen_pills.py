@@ -315,6 +315,7 @@ for name, w in chip_widths.items():
     data = render_roundrect(w, chip_h, chip_r, 1, CHIP_BG, 140, EF_FG, 20)
     emit_array(f"pill_{name}", data, w, chip_h)
 
+
 # ── Meta pills (height ~25, radius 12) ──
 # pad 12+12 lr, 6+6 tb, font rubik12 (line_height=15 approx)
 # Actual height needs measuring, using 25 for now
@@ -408,26 +409,57 @@ emit_array("pill_dot_bar", dot_bar, 18, 5)
 ready_data = render_roundrect(80, meta_h, meta_r, 1, META_BG, 179, EF_GREEN, 77)
 emit_array("pill_meta_ready_green", ready_data, 80, meta_h)
 
-# ── Action button pills (for backup panel etc.) ──
-# "Run Backup" ~100px wide, same height as chips
-btn_w = 100
+# ── Action button pills — sliced into left cap + middle tile + right cap ──
+# This allows runtime width adjustment by repeating the middle tile.
 btn_h = chip_h  # 27
 btn_r = btn_h // 2
+mid_w = 8  # ~1 character width for the repeating middle section
 
-# Active: accent green fill (like toggle ON)
-btn_active = render_roundrect(btn_w, btn_h, btn_r, 0, EF_GREEN, 255, EF_GREEN, 0)
-emit_array("pill_btn_active", btn_active, btn_w, btn_h)
+def slice_pill(name, bg, bg_a, bc, bc_a, border_w=0):
+    """Generate left cap, middle tile, and right cap for a pill button."""
+    # Render a full pill wide enough to extract clean caps
+    full_w = btn_r * 2 + mid_w  # just enough for both caps + one mid
+    full = render_roundrect(full_w, btn_h, btn_r, border_w, bg, bg_a, bc, bc_a)
 
-# Inactive: chip_bg fill (like clock pill)
-btn_inactive = render_roundrect(btn_w, btn_h, btn_r, 1, CHIP_BG, 140, EF_FG, 20)
-emit_array("pill_btn_inactive", btn_inactive, btn_w, btn_h)
+    # Left cap: first btn_r columns
+    left = bytearray(btn_r * btn_h * 4)
+    for y in range(btn_h):
+        src_off = y * full_w * 4
+        dst_off = y * btn_r * 4
+        left[dst_off:dst_off + btn_r * 4] = full[src_off:src_off + btn_r * 4]
+    emit_array(f"pill_{name}_l", bytes(left), btn_r, btn_h)
 
-# Highlight/focused: accent fill + bright border (when selected in right pane)
-btn_highlight = render_roundrect(btn_w, btn_h, btn_r, 2, EF_GREEN, 255, (0xff, 0xff, 0xff), 180)
-emit_array("pill_btn_highlight", btn_highlight, btn_w, btn_h)
+    # Middle tile: mid_w columns from the center
+    mid_start = btn_r  # start after left cap
+    mid = bytearray(mid_w * btn_h * 4)
+    for y in range(btn_h):
+        src_off = y * full_w * 4 + mid_start * 4
+        dst_off = y * mid_w * 4
+        mid[dst_off:dst_off + mid_w * 4] = full[src_off:src_off + mid_w * 4]
+    emit_array(f"pill_{name}_m", bytes(mid), mid_w, btn_h)
 
-# Busy/running: muted accent border, transparent fill
-btn_busy = render_roundrect(btn_w, btn_h, btn_r, 1, CHIP_BG, 100, EF_GREEN, 100)
-emit_array("pill_btn_busy", btn_busy, btn_w, btn_h)
+    # Right cap: last btn_r columns
+    right_start = full_w - btn_r
+    right = bytearray(btn_r * btn_h * 4)
+    for y in range(btn_h):
+        src_off = y * full_w * 4 + right_start * 4
+        dst_off = y * btn_r * 4
+        right[dst_off:dst_off + btn_r * 4] = full[src_off:src_off + btn_r * 4]
+    emit_array(f"pill_{name}_r", bytes(right), btn_r, btn_h)
+
+# Sliced chip (same style as status bar chips, for dynamic width)
+slice_pill("chip", CHIP_BG, 140, EF_FG, 20, border_w=1)
+
+# Active: accent green fill
+slice_pill("btn_active", EF_GREEN, 255, EF_GREEN, 0)
+
+# Inactive: chip_bg fill, subtle border
+slice_pill("btn_inactive", CHIP_BG, 140, EF_FG, 20, border_w=1)
+
+# Highlight/focused: accent fill + white border
+slice_pill("btn_highlight", EF_GREEN, 255, (0xff, 0xff, 0xff), 180, border_w=2)
+
+# Busy: chip_bg fill, accent border
+slice_pill("btn_busy", CHIP_BG, 100, EF_GREEN, 100, border_w=1)
 
 print("/* End of generated pill data */")

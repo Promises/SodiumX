@@ -1,5 +1,5 @@
 #include <lvgl.h>
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "../platform.h"
 #include "lvgl_drivers/lv_port_disp.h"
 #include "lvgl_drivers/lv_port_indev.h"

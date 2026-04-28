@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 static void input_forwarder(lv_event_t *event)
 {

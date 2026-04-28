@@ -9,7 +9,7 @@
 //   5. Fire-and-forget streaming — no per-file ACK wait
 //   6. Graceful abort on shutdown/game launch with session persistence
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_backup.h"
 #include "dash_remote.h"
 
@@ -100,7 +100,7 @@ static void set_status(const char *fmt, ...)
 
 static bool should_skip_dir(const char *name)
 {
-    return (strcmp(name, "LithiumX") == 0);
+    return (strcmp(name, "SodiumX") == 0);
 }
 
 /* ══════════════════════════════════════════════════════════════════

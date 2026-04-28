@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 lv_obj_t *confirmbox_open(const char *btn_str, menuitem_cb_t accept_cb, const void *accept_param);
 

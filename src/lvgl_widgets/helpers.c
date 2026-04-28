@@ -1,4 +1,4 @@
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include <string.h>
 
 char *lv_strdup(const char *s)

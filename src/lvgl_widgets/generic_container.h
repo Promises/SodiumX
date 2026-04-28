@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 lv_obj_t *container_open(void);
 

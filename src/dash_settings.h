@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 #define DASH_SETTINGS_VERSION_V2 0x02
 #define DASH_SETTINGS_VERSION_V3 0x03

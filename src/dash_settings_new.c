@@ -2,7 +2,7 @@
 // New settings panel — built on dash_panel for proper two-pane focus.
 // Migrates sections from dash_settings.c one at a time.
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_panel.h"
 #include "dash_backup.h"
 #include "dash_pill_data.h"
@@ -39,13 +39,13 @@ static lv_obj_t *create_setting_row_new(lv_obj_t *parent, const char *label_text
     lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *lbl = lv_label_create(left);
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
     lv_label_set_text(lbl, label_text);
 
     if (desc_text) {
         lv_obj_t *desc = lv_label_create(left);
-        lv_obj_set_style_text_font(desc, &lv_font_rubik_12, LV_PART_MAIN);
+        lv_obj_set_style_text_font(desc, &dash_font_ui_12, LV_PART_MAIN);
         lv_obj_set_style_text_color(desc, EF_FG_MUTED, LV_PART_MAIN);
         lv_obj_set_width(desc, 360);
         lv_label_set_text(desc, desc_text);
@@ -60,7 +60,7 @@ static void create_readout_new(lv_obj_t *parent, const char *label_text,
 {
     lv_obj_t *row = create_setting_row_new(parent, label_text, NULL, first);
     lv_obj_t *val = lv_label_create(row);
-    lv_obj_set_style_text_font(val, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(val, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(val, EF_FG, LV_PART_MAIN);
     lv_label_set_text(val, value_text);
 }
@@ -68,7 +68,7 @@ static void create_readout_new(lv_obj_t *parent, const char *label_text,
 static void section_header(lv_obj_t *body, const char *title_text, const char *sub_text)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, EF_FG, LV_PART_MAIN);
     lv_label_set_text(title, title_text);
 
@@ -193,7 +193,7 @@ static void reset_toggle_rows(void)
  * ══════════════════════════════════════════════════════════════════ */
 static void build_display(lv_obj_t *body)
 {
-    section_header(body, "Display", "How LithiumX renders to your TV.");
+    section_header(body, "Display", "How SodiumX renders to your TV.");
     reset_toggle_rows();
 
     create_toggle_row(body, "Animated background",
@@ -358,7 +358,7 @@ static void build_hardware(lv_obj_t *body)
  * ══════════════════════════════════════════════════════════════════ */
 static void build_about(lv_obj_t *body)
 {
-    section_header(body, "About LithiumX", "A minimal, GPU-accelerated dashboard.");
+    section_header(body, "About SodiumX", "A minimal, GPU-accelerated dashboard.");
 
     create_readout_new(body, "Version", "2.4.0-modern", true);
 #ifdef NXDK
@@ -386,7 +386,8 @@ static const dash_panel_section_t settings_sections[] = {
     { "Audio",     LV_SYMBOL_VOLUME_MAX, build_audio,    toggles_on_key, false },
     { "System",    LV_SYMBOL_SETTINGS,   build_system,   toggles_on_key, false },
     { "Backup",    LV_SYMBOL_UPLOAD,     build_backup,   toggles_on_key, false },
-    { "Hardware",  LV_SYMBOL_SD_CARD,    build_hardware, NULL, true },
+#define LV_SYMBOL_MICROCHIP "\xEF\x8B\x9B" /* U+F2DB */
+    { "Hardware",  LV_SYMBOL_MICROCHIP,  build_hardware, NULL, true },
     { "About",     LV_SYMBOL_EYE_OPEN,   build_about,    NULL, true },
 };
 

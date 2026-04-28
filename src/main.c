@@ -1,7 +1,7 @@
 #define NANOPRINTF_IMPLEMENTATION
 #define NANOPRINTF_SNPRINTF_SAFE_TRIM_STRING_ON_OVERFLOW
 #include <lvgl.h>
-#include "lithiumx.h"
+#include "sodiumx.h"
 #ifndef NXDK
 #include <signal.h>
 static void signal_handler(int sig) { (void)sig; lv_set_quit(LV_QUIT_OTHER); }
@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
                                            "Connect and send: log on\n\n"
                                            "Or press B / Backspace to skip");
             lv_obj_set_style_text_color(wait_label, lv_color_white(), LV_PART_MAIN);
-            lv_obj_set_style_text_font(wait_label, &lv_font_rubik_16, LV_PART_MAIN);
+            lv_obj_set_style_text_font(wait_label, &dash_font_ui_16, LV_PART_MAIN);
             lv_obj_set_style_text_align(wait_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
             lv_obj_center(wait_label);
 

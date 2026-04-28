@@ -73,17 +73,17 @@ int strcasecmp(const char *s1, const char *s2);
 //nxdk local directory is also mounting to Q: so we get Q:Q:..
 #ifndef DASH_SEARCH_PATH_CONFIG
 #ifdef NXDK
-#define DASH_SEARCH_PATH_CONFIG "E:\\UDATA\\LithiumX\\lithiumx.toml"
+#define DASH_SEARCH_PATH_CONFIG "E:\\UDATA\\SodiumX\\sodiumx.toml"
 #else
-#define DASH_SEARCH_PATH_CONFIG "lithiumx.toml"
+#define DASH_SEARCH_PATH_CONFIG "sodiumx.toml"
 #endif
 #endif
 
 #ifndef DASH_DATABASE_PATH
 #ifdef NXDK
-#define DASH_DATABASE_PATH "E:\\UDATA\\LithiumX\\lithiumx.db"
+#define DASH_DATABASE_PATH "E:\\UDATA\\SodiumX\\sodiumx.db"
 #else
-#define DASH_DATABASE_PATH "lithiumx.db"
+#define DASH_DATABASE_PATH "sodiumx.db"
 #endif
 #endif
 

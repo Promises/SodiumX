@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-/* Forward declarations — full LVGL types come via lithiumx.h in the .c file */
+/* Forward declarations — full LVGL types come via sodiumx.h in the .c file */
 struct _lv_anim_t;
 struct _lv_obj_t;
 

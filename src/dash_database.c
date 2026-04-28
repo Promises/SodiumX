@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 static sqlite3 *db = NULL;
 static SDL_mutex *db_mutex;

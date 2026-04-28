@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_prerender.h"
 #include "dash_pill_data.h"
+
+LV_IMG_DECLARE(img_sodiumx_glyph);
+LV_IMG_DECLARE(img_sodiumx_wordmark);
 
 static lv_obj_t *sb_container;
 static lv_obj_t *sb_clock_label;
@@ -92,6 +95,47 @@ static lv_obj_t *create_chip(lv_obj_t *parent, const lv_img_dsc_t *pill_img_dsc,
     return chip;
 }
 
+/* Create a dynamically-sized chip using sliced pill images */
+#define CHIP_CAP_W  13  /* chip_h/2 = 27/2 = 13 */
+#define CHIP_MID_W   8  /* middle tile width */
+#define CHIP_H      27
+
+static lv_obj_t *create_chip_sliced(lv_obj_t *parent, const char *initial_text,
+                                     const lv_font_t *font)
+{
+    /* Measure text to determine width */
+    lv_point_t txt_size;
+    lv_txt_get_size(&txt_size, initial_text, font, 0, 0, LV_COORD_MAX, 0);
+    int text_w = txt_size.x + 12; /* horizontal padding (6px each side) */
+    int mid_count = (text_w + CHIP_MID_W - 1) / CHIP_MID_W;
+    if (mid_count < 1) mid_count = 1;
+    int total_w = CHIP_CAP_W + mid_count * CHIP_MID_W + CHIP_CAP_W;
+
+    lv_obj_t *chip = lv_obj_create(parent);
+    lv_obj_set_size(chip, total_w, CHIP_H);
+    lv_obj_set_style_bg_opa(chip, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(chip, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(chip, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(chip, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(chip, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *left = lv_img_create(chip);
+    lv_img_set_src(left, &pill_chip_l);
+    lv_obj_set_pos(left, 0, 0);
+
+    for (int i = 0; i < mid_count; i++) {
+        lv_obj_t *mid = lv_img_create(chip);
+        lv_img_set_src(mid, &pill_chip_m);
+        lv_obj_set_pos(mid, CHIP_CAP_W + i * CHIP_MID_W, 0);
+    }
+
+    lv_obj_t *right = lv_img_create(chip);
+    lv_img_set_src(right, &pill_chip_r);
+    lv_obj_set_pos(right, CHIP_CAP_W + mid_count * CHIP_MID_W, 0);
+
+    return chip;
+}
+
 /* Create a small green status dot (6x6, pre-compiled) */
 static lv_obj_t *create_status_dot(lv_obj_t *parent)
 {
@@ -126,30 +170,9 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     lv_obj_set_style_pad_column(left, 10, LV_PART_MAIN);
     lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Logo square (26x26, accent gradient) */
-    lv_obj_t *logo = lv_obj_create(left);
-    lv_obj_set_size(logo, 26, 26);
-    lv_obj_set_style_radius(logo, 7, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(logo, EF_GREEN, LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_color(logo, EF_AQUA, LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_dir(logo, LV_GRAD_DIR_VER, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(logo, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(logo, 0, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(logo, 14, LV_PART_MAIN);
-    lv_obj_set_style_shadow_color(logo, EF_GREEN, LV_PART_MAIN);
-    lv_obj_set_style_shadow_opa(logo, 102, LV_PART_MAIN); /* ~40% */
-    lv_obj_clear_flag(logo, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* Inner diamond cutout */
-    lv_obj_t *diamond = lv_obj_create(logo);
-    lv_obj_set_size(diamond, 10, 10);
-    lv_obj_set_style_bg_color(diamond, lv_color_hex(0x0b0d0e), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(diamond, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_radius(diamond, 2, LV_PART_MAIN);
-    lv_obj_set_style_border_width(diamond, 0, LV_PART_MAIN);
-    lv_obj_set_style_transform_angle(diamond, 450, LV_PART_MAIN); /* 45 degrees */
-    lv_obj_center(diamond);
-    lv_obj_clear_flag(diamond, LV_OBJ_FLAG_SCROLLABLE);
+    /* Logo glyph (pre-rendered brand badge) */
+    lv_obj_t *logo = lv_img_create(left);
+    lv_img_set_src(logo, &img_sodiumx_glyph);
 
     /* Logo text column */
     lv_obj_t *logo_text = lv_obj_create(left);
@@ -159,22 +182,15 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     lv_obj_set_style_pad_all(logo_text, 0, LV_PART_MAIN);
     lv_obj_set_layout(logo_text, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(logo_text, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(logo_text, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(logo_text, 1, LV_PART_MAIN);
     lv_obj_clear_flag(logo_text, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *name_lbl = lv_label_create(logo_text);
-    lv_label_set_text(name_lbl, "LithiumX");
-    lv_obj_set_style_text_font(name_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(name_lbl, EF_FG, LV_PART_MAIN);
+    /* Pre-rendered wordmark (Space Grotesk with green X) */
+    lv_obj_t *wordmark = lv_img_create(logo_text);
+    lv_img_set_src(wordmark, &img_sodiumx_wordmark);
 
-    lv_obj_t *ver_lbl = lv_label_create(logo_text);
-    lv_label_set_text(ver_lbl, "v2.4 " LV_SYMBOL_DUMMY " nv2a");
-    lv_obj_set_style_text_font(ver_lbl, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ver_lbl, EF_FG_MUTED, LV_PART_MAIN);
-    lv_obj_set_style_text_opa(ver_lbl, 179, LV_PART_MAIN); /* 70% */
-
-    /* FPS chip */
-    sb_fps_chip = create_chip(left, &pill_chip_fps, NULL);
+    /* FPS chip (sliced for dynamic width) */
+    sb_fps_chip = create_chip_sliced(left, "-- FPS", &lv_font_jetbrains_mono_10);
     sb_fps_label = lv_label_create(sb_fps_chip);
     lv_label_set_text(sb_fps_label, "-- FPS");
     lv_obj_set_style_text_font(sb_fps_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
@@ -182,8 +198,8 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     lv_obj_add_flag(sb_fps_label, LV_OBJ_FLAG_FLOATING);
     lv_obj_center(sb_fps_label);
 
-    /* CPU chip */
-    sb_cpu_chip = create_chip(left, &pill_chip_cpu, NULL);
+    /* CPU chip (sliced) */
+    sb_cpu_chip = create_chip_sliced(left, "0% CPU", &lv_font_jetbrains_mono_10);
     sb_cpu_label = lv_label_create(sb_cpu_chip);
     lv_label_set_text(sb_cpu_label, "0% CPU");
     lv_obj_set_style_text_font(sb_cpu_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);
@@ -191,8 +207,8 @@ lv_obj_t *dash_statusbar_create(lv_obj_t *parent)
     lv_obj_add_flag(sb_cpu_label, LV_OBJ_FLAG_FLOATING);
     lv_obj_center(sb_cpu_label);
 
-    /* MEM chip */
-    sb_mem_chip = create_chip(left, &pill_chip_mem, NULL);
+    /* MEM chip (sliced) */
+    sb_mem_chip = create_chip_sliced(left, "30/64MB", &lv_font_jetbrains_mono_10);
     sb_mem_label = lv_label_create(sb_mem_chip);
     lv_label_set_text(sb_mem_label, "0kB");
     lv_obj_set_style_text_font(sb_mem_label, &lv_font_jetbrains_mono_10, LV_PART_MAIN);

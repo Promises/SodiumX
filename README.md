@@ -1,4 +1,4 @@
-# LithiumX
+# SodiumX
 
 A simple dashboard, mainly developed for the Original Xbox console, but it can be compiled for Windows and Linux for rapid development and testing.
 
@@ -23,7 +23,7 @@ A simple dashboard, mainly developed for the Original Xbox console, but it can b
 * A - Launch selected title
 
 ## Game Search Paths
-* On the first launch, a `lithiumx.toml` will be created at "E:/UDATA/LithiumX" with a starting template. Edit this to modify search paths for titles.
+* On the first launch, a `sodiumx.toml` will be created at "E:/UDATA/SodiumX" with a starting template. Edit this to modify search paths for titles.
 * If the template is invalid, the program will reset it back to the inbuilt default.
 
 ## Todo
@@ -41,8 +41,8 @@ A simple dashboard, mainly developed for the Original Xbox console, but it can b
 Setup and install nxdk, then:
 ```
 sudo apt-get update -y && sudo apt-get install -y flex bison clang lld llvm
-git clone --recursive https://github.com/Ryzee119/LithiumX.git
-cd LithiumX
+git clone --recursive https://github.com/Promises/SodiumX.git
+cd SodiumX
 ./src/libs/nxdk/bin/activate
 make -f Makefile.nxdk -j (Add -B if editing lv_conf.h or other header files to ensure its built correctly)
 ```
@@ -65,8 +65,8 @@ cmake .. -G "Unix Makefiles"
 cmake --build .
 ```
 
-git clone --recursive https://github.com/Ryzee119/LithiumX.git
-cd LithiumX/
+git clone --recursive https://github.com/Promises/SodiumX.git
+cd SodiumX/
 mkdir build && cd build
 cmake .. -G "MinGW Makefiles"
 cmake --build .
@@ -75,18 +75,18 @@ cmake --build .
 ## Build (macOS Version)
 ```
 brew install cmake sdl2 jpeg-turbo pkg-config
-git clone --recursive https://github.com/Ryzee119/LithiumX.git
-cd LithiumX
+git clone --recursive https://github.com/Promises/SodiumX.git
+cd SodiumX
 mkdir build && cd build
 cmake .. -G "Unix Makefiles"
 cmake --build .
 ```
 
 ## Licence and Attribution
-This project is shared under the [MIT license](https://github.com/Ryzee119/LithiumX/blob/master/LICENSE), however this project includes code by others. Refer to the list below.
+This project is shared under the [MIT license](https://github.com/Promises/SodiumX/blob/master/LICENSE), however this project includes code by others. Refer to the list below.
 * [lvgl](https://github.com/lvgl)/**[lvgl](https://github.com/lvgl/lvgl)** shared under the [MIT License](https://github.com/lvgl/lvgl/blob/master/LICENCE.txt).
 * [charlesnicholson](https://github.com/charlesnicholson)/**[nanoprintf](https://github.com/charlesnicholson/nanoprintf)** shared under the [MIT License](https://github.com/charlesnicholson/nanoprintf/blob/main/LICENSE).
 * [capmar](https://github.com/capmar/)/**[sxml](https://github.com/capmar/sxml)** shared under the [UNLICENSE](https://github.com/capmar/sxml/blob/master/UNLICENSE).
 * [cktan](https://github.com/cktan/)/**[tomlc99](https://github.com/cktan/tomlc99)** shared under the [MIT License](https://github.com/cktan/tomlc99/blob/master/LICENSE).
 * [XboxDev](https://github.com/XboxDev)/**[nxdk](https://github.com/XboxDev/nxdk)** shared under the [Various Licenses](https://github.com/XboxDev/nxdk/tree/master/LICENSES).
-* [sandertrilectronics](https://github.com/sandertrilectronics)/**[LWIP-FreeRTOS-FTP-Server](https://github.com/sandertrilectronics/LWIP-FreeRTOS-Netconn-FTP-Server)** shared under the [Apache 2.0 License](https://github.com/Ryzee119/LithiumX/blob/master/src/lib/ftpd/LICENSE).
+* [sandertrilectronics](https://github.com/sandertrilectronics)/**[LWIP-FreeRTOS-FTP-Server](https://github.com/sandertrilectronics/LWIP-FreeRTOS-Netconn-FTP-Server)** shared under the [Apache 2.0 License](https://github.com/Promises/SodiumX/blob/master/src/lib/ftpd/LICENSE).

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-#include "lithiumx.h"
+#include "sodiumx.h"
+
+LV_IMG_DECLARE(img_start_menu_pill);
 #include "dash_pill_data.h"
 
 static lv_obj_t *cb_container;
@@ -25,14 +27,14 @@ static lv_obj_t *create_btn_glyph(lv_obj_t *parent, const char *letter, lv_color
     /* FA circle glyph as anti-aliased background */
     lv_obj_t *circle_lbl = lv_label_create(btn);
     lv_label_set_text(circle_lbl, FA_CIRCLE);
-    lv_obj_set_style_text_font(circle_lbl, &lv_font_rubik_26, LV_PART_MAIN);
+    lv_obj_set_style_text_font(circle_lbl, &dash_font_ui_26, LV_PART_MAIN);
     lv_obj_set_style_text_color(circle_lbl, color, LV_PART_MAIN);
     lv_obj_center(circle_lbl);
 
     /* Letter label centered on top */
     lv_obj_t *lbl = lv_label_create(btn);
     lv_label_set_text(lbl, letter);
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0x0b0d0e), LV_PART_MAIN);
     lv_obj_center(lbl);
 
@@ -57,7 +59,7 @@ static lv_obj_t *create_hint(lv_obj_t *parent, const char *letter, lv_color_t co
 
     lv_obj_t *lbl = lv_label_create(hint);
     lv_label_set_text(lbl, label_text);
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
 
     if (label_out) *label_out = lbl;
@@ -96,36 +98,9 @@ lv_obj_t *dash_controls_bar_create(lv_obj_t *parent)
     create_hint(hints_left, "X", EF_BLUE,   "Manage", &lbl_x);
     create_hint(hints_left, "Y", EF_YELLOW, "Sort",   &lbl_y);
 
-    /* Right: START pill */
-    lv_obj_t *start_hint = lv_obj_create(cb_container);
-    lv_obj_remove_style_all(start_hint);
-    lv_obj_set_size(start_hint, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(start_hint, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(start_hint, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(start_hint, 0, LV_PART_MAIN);
-    lv_obj_set_layout(start_hint, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(start_hint, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(start_hint, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(start_hint, 8, LV_PART_MAIN);
-    lv_obj_clear_flag(start_hint, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* START label + Menu label — pill removed for now, was always clipped */
-    lv_obj_t *start_lbl = lv_label_create(start_hint);
-    lv_label_set_text(start_lbl, "START");
-    lv_obj_set_style_text_font(start_lbl, &lv_font_rubik_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(start_lbl, EF_FG, LV_PART_MAIN);
-
-    /* DEBUG: red border on start_hint */
-    lv_obj_set_style_border_width(start_hint, 2, LV_PART_MAIN);
-    lv_obj_set_style_border_color(start_hint, lv_color_hex(0xff0000), LV_PART_MAIN);
-    lv_obj_set_style_border_opa(start_hint, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(start_hint, lv_color_hex(0xff0000), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(start_hint, 100, LV_PART_MAIN);
-
-    lv_obj_t *menu_lbl = lv_label_create(start_hint);
-    lv_label_set_text(menu_lbl, "Menu");
-    lv_obj_set_style_text_font(menu_lbl, &lv_font_rubik_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(menu_lbl, EF_FG, LV_PART_MAIN);
+    /* Right: pre-rendered START pill + Menu label */
+    lv_obj_t *start_img = lv_img_create(cb_container);
+    lv_img_set_src(start_img, &img_start_menu_pill);
 
     return cb_container;
 }

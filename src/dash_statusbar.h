@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 /* Create the status bar on screen (top 44px). Returns the container. */
 lv_obj_t *dash_statusbar_create(lv_obj_t *parent);

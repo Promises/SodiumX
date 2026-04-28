@@ -2,7 +2,7 @@
 #ifndef _DASH_PRERENDER_H
 #define _DASH_PRERENDER_H
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 /* Pre-rendered pill (3-slice: left endcap + middle strip + right endcap) */
 typedef struct {

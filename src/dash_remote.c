@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// Remote debug/test TCP server for LithiumX
+// Remote debug/test TCP server for SodiumX
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_remote.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -156,9 +156,9 @@ static void handle_screenshot(SOCKET_TYPE fd)
 
     /* Save to temp file then read and send */
 #ifdef NXDK
-    const char *path = "E:\\UDATA\\LithiumX\\screenshot.bmp";
+    const char *path = "E:\\UDATA\\SodiumX\\screenshot.bmp";
 #else
-    const char *path = "/tmp/lithiumx_screenshot.bmp";
+    const char *path = "/tmp/sodiumx_screenshot.bmp";
 #endif
     SDL_SaveBMP(surface, path);
     SDL_FreeSurface(surface);
@@ -340,7 +340,7 @@ static int server_thread_fn(void *param)
                     clients[i].log_streaming = false;
                     added = true;
                     printf("[REMOTE] Client %d connected\n", i);
-                    send_str(new_fd, "LithiumX Remote Debug v1\n");
+                    send_str(new_fd, "SodiumX Remote Debug v1\n");
                     break;
                 }
             }

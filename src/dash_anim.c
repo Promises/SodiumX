@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 
 /* ============================================================

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
 
-project(LithiumX C)
+project(SodiumX C)
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined -fsanitize-undefined-trap-on-error -fno-omit-frame-pointer")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNDEBUG")
 
@@ -77,6 +77,9 @@ set(SOURCES
     src/dash_settings_new.c
     src/dash_backdrop.c
     src/dash_prerender.c
+    src/img_sodiumx_glyph.c
+    src/img_sodiumx_wordmark.c
+    src/img_start_menu_pill.c
     src/fonts/lv_font_rubik_10.c
     src/fonts/lv_font_rubik_12.c
     src/fonts/lv_font_rubik_14.c
@@ -90,6 +93,15 @@ set(SOURCES
     src/fonts/lv_font_jetbrains_mono_12.c
     src/fonts/lv_font_jetbrains_mono_14.c
     src/fonts/lv_font_jetbrains_mono_16.c
+    src/fonts/lv_font_sg_10.c
+    src/fonts/lv_font_sg_12.c
+    src/fonts/lv_font_sg_14.c
+    src/fonts/lv_font_sg_16.c
+    src/fonts/lv_font_sg_20.c
+    src/fonts/lv_font_sg_22.c
+    src/fonts/lv_font_sg_24.c
+    src/fonts/lv_font_sg_26.c
+    src/fonts/lv_font_sg_32.c
     src/lvgl_widgets/confirmbox.c
     src/lvgl_widgets/menu.c
     src/lvgl_widgets/generic_container.c
@@ -105,14 +117,14 @@ elseif(WIN32)
     list(APPEND SOURCES src/lvgl_drivers/video/sdl/lv_sdl_disp.c)
     list(APPEND SOURCES src/platform/win32/platform.c)
 endif()
-add_executable(LithiumX ${SOURCES})
+add_executable(SodiumX ${SOURCES})
 
-target_compile_options(LithiumX PUBLIC -Wall -Wextra)
-target_compile_definitions(LithiumX PUBLIC "-DLVGL_USE_CUSTOM_KEYBOARD_MAP")
+target_compile_options(SodiumX PUBLIC -Wall -Wextra)
+target_compile_definitions(SodiumX PUBLIC "-DLVGL_USE_CUSTOM_KEYBOARD_MAP" "-DDASH_FONT_SPACE_GROTESK")
 include_directories(src/fonts)
-target_include_directories(LithiumX PUBLIC . libs)
+target_include_directories(SodiumX PUBLIC . libs)
 
-target_link_directories(LithiumX PRIVATE ${SDL2_LIBRARY_DIRS} ${TURBOJPEG_LIBRARY_DIRS} ${LIBJPEG_LIBRARY_DIRS})
-target_link_libraries(LithiumX PRIVATE lvgl sqlite jpg_decoder toml sxml tlsf ${SDL2_LIBRARIES})
+target_link_directories(SodiumX PRIVATE ${SDL2_LIBRARY_DIRS} ${TURBOJPEG_LIBRARY_DIRS} ${LIBJPEG_LIBRARY_DIRS})
+target_link_libraries(SodiumX PRIVATE lvgl sqlite jpg_decoder toml sxml tlsf ${SDL2_LIBRARIES})
 
-#target_compile_options(LithiumX PRIVATE -O2)
+#target_compile_options(SodiumX PRIVATE -O2)

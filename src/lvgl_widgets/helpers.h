@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 char *lv_strdup(const char *s);
 

@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 /* Create the controls bar (bottom 52px). Returns the container. */
 lv_obj_t *dash_controls_bar_create(lv_obj_t *parent);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Save game backup client for LithiumX
+// Save game backup client for SodiumX
 //
 // Backs up E:\UDATA and E:\TDATA to a remote server via a custom TCP
 // protocol optimised for very short windows (1-10 seconds).
@@ -48,8 +48,8 @@ extern "C" {
 #define DASH_BACKUP_TDATA_PATH "E:\\TDATA"
 #define DASH_BACKUP_UDATA_PREFIX "UDATA"
 #define DASH_BACKUP_TDATA_PREFIX "TDATA"
-#define DASH_BACKUP_SESSION_PATH "E:\\UDATA\\LithiumX\\backup_session"
-#define DASH_BACKUP_MANIFEST_CACHE_PATH "E:\\UDATA\\LithiumX\\backup_manifest"
+#define DASH_BACKUP_SESSION_PATH "E:\\UDATA\\SodiumX\\backup_session"
+#define DASH_BACKUP_MANIFEST_CACHE_PATH "E:\\UDATA\\SodiumX\\backup_manifest"
 #else
 #define DASH_BACKUP_UDATA_PATH "test_udata"
 #define DASH_BACKUP_TDATA_PATH "test_tdata"

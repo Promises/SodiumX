@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 typedef void (*menuitem_cb_t)(void *param);
 

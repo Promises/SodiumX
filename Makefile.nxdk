@@ -1,4 +1,4 @@
-XBE_TITLE = LithiumX
+XBE_TITLE = SodiumX
 GEN_XISO = $(XBE_TITLE).iso
 NXDK_SDL = y
 NXDK_NET = y
@@ -32,6 +32,9 @@ SRCS += \
     $(CURDIR)/src/dash_settings_new.c \
     $(CURDIR)/src/dash_backdrop.c \
     $(CURDIR)/src/dash_prerender.c \
+    $(CURDIR)/src/img_sodiumx_glyph.c \
+    $(CURDIR)/src/img_sodiumx_wordmark.c \
+    $(CURDIR)/src/img_start_menu_pill.c \
     $(CURDIR)/src/main.c \
     $(CURDIR)/src/lvgl_widgets/confirmbox.c \
     $(CURDIR)/src/lvgl_widgets/generic_container.c \
@@ -62,7 +65,16 @@ SRCS += \
     $(CURDIR)/src/fonts/lv_font_jetbrains_mono_10.c \
     $(CURDIR)/src/fonts/lv_font_jetbrains_mono_12.c \
     $(CURDIR)/src/fonts/lv_font_jetbrains_mono_14.c \
-    $(CURDIR)/src/fonts/lv_font_jetbrains_mono_16.c
+    $(CURDIR)/src/fonts/lv_font_jetbrains_mono_16.c \
+    $(CURDIR)/src/fonts/lv_font_sg_10.c \
+    $(CURDIR)/src/fonts/lv_font_sg_12.c \
+    $(CURDIR)/src/fonts/lv_font_sg_14.c \
+    $(CURDIR)/src/fonts/lv_font_sg_16.c \
+    $(CURDIR)/src/fonts/lv_font_sg_20.c \
+    $(CURDIR)/src/fonts/lv_font_sg_22.c \
+    $(CURDIR)/src/fonts/lv_font_sg_24.c \
+    $(CURDIR)/src/fonts/lv_font_sg_26.c \
+    $(CURDIR)/src/fonts/lv_font_sg_32.c
 
 CFLAGS += \
     -I$(CURDIR)/src \
@@ -74,6 +86,7 @@ CFLAGS += \
     -DSDL_DISABLE_JOYSTICK_INIT_DELAY \
     -DLVGL_USE_CUSTOM_CONTROLLER_MAP \
     -DLVGL_USE_CUSTOM_KEYBOARD_MAP \
+    -DDASH_FONT_SPACE_GROTESK \
     -DFTP_CUSTOM_ROOT_PATH \
     -DSNTP_SET_SYSTEM_TIME=xbox_sntp_set_time \
     -DSNTP_SERVER_DNS=1 \

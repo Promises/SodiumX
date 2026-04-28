@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "../lithiumx.h"
+#include "../sodiumx.h"
 
 static const int key_escape = LV_KEY_ESC;
 

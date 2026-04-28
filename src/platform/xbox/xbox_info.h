@@ -2,7 +2,7 @@
 #include <xboxkrnl/xboxkrnl.h>
 #include <hal/xbox.h>
 #include <lvgl.h>
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 static const char *video_region_str(unsigned int code)
 {

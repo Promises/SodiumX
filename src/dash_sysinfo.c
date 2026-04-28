@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 
 static lv_obj_t *sysinfo_overlay;
@@ -54,7 +54,7 @@ static void create_stat_card(lv_obj_t *parent, int index,
 
     /* Value */
     stat_labels[index] = lv_label_create(card);
-    lv_obj_set_style_text_font(stat_labels[index], &lv_font_rubik_32, LV_PART_MAIN);
+    lv_obj_set_style_text_font(stat_labels[index], &dash_font_ui_32, LV_PART_MAIN);
     lv_obj_set_style_text_color(stat_labels[index], lv_color_white(), LV_PART_MAIN);
     lv_label_set_text(stat_labels[index], value_text);
 
@@ -176,7 +176,7 @@ void dash_sysinfo_open(void)
     lv_label_set_text(eyebrow, "SYSTEM");
 
     lv_obj_t *title = lv_label_create(header_left);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_label_set_text(title, "Console Status");
 
     lv_obj_t *subtitle = lv_label_create(header_left);
@@ -275,7 +275,7 @@ void dash_sysinfo_open(void)
     lv_obj_add_style(dash_title, &eyebrow_style, LV_PART_MAIN);
     lv_label_set_text(dash_title, "DASHBOARD");
 
-    const char *dash_lines[] = {"LithiumX  2.4.0-modern", "Renderer  nv2a GPU", "Uptime    00:00:00", "Frames    0"};
+    const char *dash_lines[] = {"SodiumX  2.4.0-modern", "Renderer  nv2a GPU", "Uptime    00:00:00", "Frames    0"};
     for (int i = 0; i < 4; i++)
     {
         lv_obj_t *l = lv_label_create(dash_card);

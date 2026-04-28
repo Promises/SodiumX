@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LithiumX Save Game Backup Server
+SodiumX Save Game Backup Server
 
 Receives save game backups from Xbox via custom TCP protocol.
 Manages historical snapshots using hardlink-based deduplication.
@@ -283,14 +283,28 @@ class BackupSession:
         log.info("LIST request for title_id=%s", title_id)
 
         results = []
+        prev_hash = None
         for entry in sorted(self.backup_dir.iterdir(), reverse=True):
             if not entry.is_dir() or entry.name in ("temp", "sessions", "latest"):
                 continue
-            # Check if this snapshot has files for the title (case-insensitive)
             game_dir = self._find_title_dir(entry, title_id)
             if game_dir:
-                file_count = sum(1 for f in game_dir.rglob("*") if f.is_file())
-                total_size = sum(f.stat().st_size for f in game_dir.rglob("*") if f.is_file())
+                # Compute content hash to skip duplicates
+                file_hashes = []
+                file_count = 0
+                total_size = 0
+                for f in sorted(game_dir.rglob("*")):
+                    if f.is_file():
+                        st = f.stat()
+                        file_hashes.append(f"{f.relative_to(game_dir)}:{st.st_size}:{st.st_ino}")
+                        file_count += 1
+                        total_size += st.st_size
+                content_hash = hashlib.md5("\n".join(file_hashes).encode()).hexdigest()
+
+                if content_hash == prev_hash:
+                    continue  # identical to newer snapshot, skip
+                prev_hash = content_hash
+
                 results.append({
                     "snapshot": entry.name,
                     "files": file_count,
@@ -735,7 +749,7 @@ def serve(port: int, backup_dir: Path, api_port: int = 9878):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="LithiumX Save Game Backup Server")
+    parser = argparse.ArgumentParser(description="SodiumX Save Game Backup Server")
     parser.add_argument("--port", type=int, default=9877, help="Backup protocol port (default: 9877)")
     parser.add_argument("--api-port", type=int, default=9878, help="REST API port (default: 9878)")
     parser.add_argument("--backup-dir", type=str, default="./backups",

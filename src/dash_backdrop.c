@@ -3,7 +3,7 @@
 // scaled to fullscreen via lv_img_set_zoom (hardware texture scaling on nv2a).
 // Falls back to poster art if no fanart exists.
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 #include "dash_backdrop.h"
 

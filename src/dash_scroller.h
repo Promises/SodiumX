@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 #define DASH_SORT_A_Z 0
 #define DASH_SORT_RATING 1

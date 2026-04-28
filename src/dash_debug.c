@@ -1,4 +1,4 @@
-#include <lithiumx.h>
+#include <sodiumx.h>
 
 void dash_debug_install_gpu_hook(void)
 {

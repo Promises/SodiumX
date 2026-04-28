@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2023 Ryzee119
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include <xboxkrnl/xboxkrnl.h>
 #include <windows.h>
 #include <stdbool.h>

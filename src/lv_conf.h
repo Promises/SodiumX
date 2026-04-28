@@ -54,7 +54,7 @@
     #endif
 
 #else       /*LV_MEM_CUSTOM*/
-    #define LV_MEM_CUSTOM_INCLUDE "lithiumx.h"   /*Header for the dynamic memory function*/
+    #define LV_MEM_CUSTOM_INCLUDE "sodiumx.h"   /*Header for the dynamic memory function*/
     #define LV_MEM_CUSTOM_ALLOC   lx_mem_alloc
     #define LV_MEM_CUSTOM_FREE    lx_mem_free
     #define LV_MEM_CUSTOM_REALLOC lx_mem_realloc

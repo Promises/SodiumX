@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 #include "dash_pill_data.h"
 #include <src/misc/lv_lru.h>
@@ -394,7 +394,7 @@ static void ensure_focus_badge(lv_obj_t *tile)
 
         lv_obj_t *lbl = lv_label_create(focus_badge);
         lv_label_set_text(lbl, "NOW FOCUSED");
-        lv_obj_set_style_text_font(lbl, &lv_font_rubik_10, LV_PART_MAIN);
+        lv_obj_set_style_text_font(lbl, &dash_font_ui_10, LV_PART_MAIN);
         lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
         lv_obj_set_style_text_letter_space(lbl, 1, LV_PART_MAIN);
     }
@@ -471,8 +471,7 @@ static void rail_update_focus(bool animate)
         dash_update_meta(t->title, meta_sub_buf);
         dash_update_hero_counter(selected_index - 1, child_cnt - 1);
 
-        /* Move "NOW FOCUSED" badge to selected tile */
-        ensure_focus_badge(focus_tile);
+        /* "NOW FOCUSED" badge disabled */
 
         /* Update backdrop with fanart (or fallback to poster, or color wash) */
         if (t->jpg_info && t->jpg_info->thumb_path)
@@ -760,7 +759,7 @@ static void item_scan_add(lv_obj_t *scroller, item_strings_callback_t *item_cb)
 
             /* Title label at bottom */
             lv_obj_t *title_lbl = lv_label_create(tile);
-            lv_obj_set_style_text_font(title_lbl, &lv_font_rubik_16, LV_PART_MAIN);
+            lv_obj_set_style_text_font(title_lbl, &dash_font_ui_16, LV_PART_MAIN);
             lv_obj_set_style_text_color(title_lbl, lv_color_white(), LV_PART_MAIN);
             lv_obj_set_width(title_lbl, DASH_TILE_W - 28);
             lv_label_set_text(title_lbl, item->title);
@@ -1030,7 +1029,7 @@ void dash_scroller_set_page()
         if (!empty_page_label)
         {
             empty_page_label = lv_label_create(rail_wrap);
-            lv_obj_set_style_text_font(empty_page_label, &lv_font_rubik_16, LV_PART_MAIN);
+            lv_obj_set_style_text_font(empty_page_label, &dash_font_ui_16, LV_PART_MAIN);
             lv_obj_set_style_text_color(empty_page_label, EF_FG_MUTED, LV_PART_MAIN);
             lv_obj_center(empty_page_label);
         }

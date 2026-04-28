@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LithiumX Remote Debug Client
+SodiumX Remote Debug Client
 Connects to the app's TCP debug server for input injection, screenshots, and log streaming.
 
 Usage:
@@ -19,7 +19,7 @@ import time
 HOST = os.environ.get("LX_HOST", "localhost")
 PORT = int(os.environ.get("LX_PORT", "9876"))
 
-class LithiumXRemote:
+class SodiumXRemote:
     def __init__(self, host=HOST, port=PORT):
         self.host = host
         self.port = port
@@ -189,7 +189,7 @@ def interactive(remote):
 
 
 def main():
-    remote = LithiumXRemote()
+    remote = SodiumXRemote()
     try:
         remote.connect()
     except ConnectionRefusedError:

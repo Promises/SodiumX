@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Reusable two-pane panel with left nav + right content body.
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 #include "dash_panel.h"
 
@@ -204,7 +204,7 @@ void dash_panel_open(const dash_panel_config_t *config)
     /* Optional subtitle */
     if (cfg->nav_subtitle && cfg->nav_subtitle[0]) {
         lv_obj_t *sub = lv_label_create(nav);
-        lv_obj_set_style_text_font(sub, &lv_font_rubik_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(sub, &dash_font_ui_14, LV_PART_MAIN);
         lv_obj_set_style_text_color(sub, EF_FG_MUTED, LV_PART_MAIN);
         lv_obj_set_width(sub, 210);
         lv_label_set_long_mode(sub, LV_LABEL_LONG_DOT);
@@ -225,7 +225,7 @@ void dash_panel_open(const dash_panel_config_t *config)
 
         lv_obj_t *icon = lv_label_create(item);
         lv_label_set_text(icon, cfg->sections[i].icon ? cfg->sections[i].icon : LV_SYMBOL_RIGHT);
-        lv_obj_set_style_text_font(icon, &lv_font_rubik_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(icon, &dash_font_ui_14, LV_PART_MAIN);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_label_set_text(lbl, cfg->sections[i].label ? cfg->sections[i].label : "");

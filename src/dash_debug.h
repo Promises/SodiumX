@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 void dash_debug_open();
 void dash_debug_close();

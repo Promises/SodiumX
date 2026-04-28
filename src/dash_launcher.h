@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 typedef struct xbe_launch_param
 {

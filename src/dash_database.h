@@ -9,7 +9,7 @@ extern "C"
 {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "libs/toml/toml.h"
 
 typedef struct __attribute((packed))

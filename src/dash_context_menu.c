@@ -2,12 +2,118 @@
 // Game context menu — X button opens a menu for the selected game
 // with save backup management.
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 #include "dash_context_menu.h"
 #include "dash_backup.h"
 #include "dash_panel.h"
 #include "dash_pill_data.h"
+
+/* ── Sliced pill button builder ── */
+#define PILL_BTN_CAP_W   13  /* btn_h/2 = 27/2 = 13 */
+#define PILL_BTN_MID_W    8  /* middle tile width */
+#define PILL_BTN_H       27
+
+typedef struct {
+    const lv_img_dsc_t *left;
+    const lv_img_dsc_t *mid;
+    const lv_img_dsc_t *right;
+} pill_btn_style_t;
+
+static const pill_btn_style_t PILL_ACTIVE    = {&pill_btn_active_l,    &pill_btn_active_m,    &pill_btn_active_r};
+static const pill_btn_style_t PILL_INACTIVE  = {&pill_btn_inactive_l,  &pill_btn_inactive_m,  &pill_btn_inactive_r};
+static const pill_btn_style_t PILL_HIGHLIGHT = {&pill_btn_highlight_l, &pill_btn_highlight_m, &pill_btn_highlight_r};
+static const pill_btn_style_t PILL_BUSY      = {&pill_btn_busy_l,      &pill_btn_busy_m,      &pill_btn_busy_r};
+
+/* Max middle tiles — 20 tiles × 8px = 160px max text area */
+#define PILL_MAX_MID_TILES 20
+static lv_obj_t *pill_mid_imgs[PILL_MAX_MID_TILES];
+static int pill_mid_count = 0;
+static lv_obj_t *pill_left_img = NULL;
+static lv_obj_t *pill_right_img = NULL;
+
+static lv_obj_t *create_pill_btn(lv_obj_t *parent, const char *text,
+                                  const pill_btn_style_t *style, lv_color_t text_color)
+{
+    /* Measure text width to determine middle tile count */
+    lv_point_t txt_size;
+    lv_txt_get_size(&txt_size, text, &dash_font_ui_12, 0, 0, LV_COORD_MAX, 0);
+    int text_w = txt_size.x + 16; /* add horizontal padding */
+    int mid_count = (text_w + PILL_BTN_MID_W - 1) / PILL_BTN_MID_W;
+    if (mid_count < 1) mid_count = 1;
+    if (mid_count > PILL_MAX_MID_TILES) mid_count = PILL_MAX_MID_TILES;
+
+    int total_w = PILL_BTN_CAP_W + mid_count * PILL_BTN_MID_W + PILL_BTN_CAP_W;
+
+    /* Container */
+    lv_obj_t *btn = lv_obj_create(parent);
+    lv_obj_set_size(btn, total_w, PILL_BTN_H);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(btn, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Left cap */
+    pill_left_img = lv_img_create(btn);
+    lv_img_set_src(pill_left_img, style->left);
+    lv_obj_set_pos(pill_left_img, 0, 0);
+
+    /* Middle tiles */
+    pill_mid_count = mid_count;
+    for (int i = 0; i < mid_count; i++) {
+        pill_mid_imgs[i] = lv_img_create(btn);
+        lv_img_set_src(pill_mid_imgs[i], style->mid);
+        lv_obj_set_pos(pill_mid_imgs[i], PILL_BTN_CAP_W + i * PILL_BTN_MID_W, 0);
+    }
+
+    /* Right cap */
+    pill_right_img = lv_img_create(btn);
+    lv_img_set_src(pill_right_img, style->right);
+    lv_obj_set_pos(pill_right_img, PILL_BTN_CAP_W + mid_count * PILL_BTN_MID_W, 0);
+
+    /* Label centered over the whole button */
+    lv_obj_t *lbl = lv_label_create(btn);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl, text_color, LV_PART_MAIN);
+    lv_label_set_text(lbl, text);
+    lv_obj_center(lbl);
+
+    return btn;
+}
+
+static void pill_btn_set_style(const pill_btn_style_t *style, lv_color_t text_color)
+{
+    if (pill_left_img) lv_img_set_src(pill_left_img, style->left);
+    if (pill_right_img) lv_img_set_src(pill_right_img, style->right);
+    for (int i = 0; i < pill_mid_count; i++) {
+        if (pill_mid_imgs[i]) lv_img_set_src(pill_mid_imgs[i], style->mid);
+    }
+    if (pill_left_img) {
+        lv_obj_t *btn = lv_obj_get_parent(pill_left_img);
+        lv_obj_t *lbl = lv_obj_get_child(btn, lv_obj_get_child_cnt(btn) - 1);
+        if (lbl) lv_obj_set_style_text_color(lbl, text_color, LV_PART_MAIN);
+    }
+}
+
+/* Update style on any pill button container (found by iterating its children) */
+static void pill_btn_restyle(lv_obj_t *btn, const pill_btn_style_t *style, lv_color_t text_color)
+{
+    if (!btn) return;
+    int cnt = (int)lv_obj_get_child_cnt(btn);
+    if (cnt < 3) return; /* need at least left + 1 mid + right + label */
+
+    /* First child = left cap */
+    lv_img_set_src(lv_obj_get_child(btn, 0), style->left);
+    /* Last two children = right cap, then label */
+    lv_img_set_src(lv_obj_get_child(btn, cnt - 2), style->right);
+    /* Middle children = mid tiles */
+    for (int i = 1; i < cnt - 2; i++) {
+        lv_img_set_src(lv_obj_get_child(btn, i), style->mid);
+    }
+    /* Label is last child */
+    lv_obj_set_style_text_color(lv_obj_get_child(btn, cnt - 1), text_color, LV_PART_MAIN);
+}
 
 /* ── State ── */
 static bool ctx_menu_open = false;
@@ -39,7 +145,7 @@ static snapshot_entry_t snapshots[MAX_SNAPSHOTS];
 static int snapshot_count = 0;
 static int restore_selected = 0;
 static lv_obj_t *restore_items[MAX_SNAPSHOTS];
-static lv_obj_t *restore_btn_imgs[MAX_SNAPSHOTS];
+static lv_obj_t *restore_btns[MAX_SNAPSHOTS]; /* pill button containers */
 static lv_obj_t *restore_status_lbl = NULL;
 static volatile bool restore_list_ready = false;
 static volatile bool restore_in_progress = false;
@@ -171,7 +277,7 @@ void dash_context_menu_open(int db_id)
     lv_label_set_text(eyebrow, ctx_title_id[0] ? ctx_title_id : "GAME");
 
     lv_obj_t *title = lv_label_create(title_col);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_20, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_20, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_width(title, 300);
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
@@ -212,12 +318,12 @@ void dash_context_menu_open(int db_id)
     lv_obj_t *icon_lbl = lv_label_create(icon_tile);
     lv_label_set_text(icon_lbl, LV_SYMBOL_UPLOAD);
     lv_obj_set_style_text_color(icon_lbl, EF_FG_MUTED, LV_PART_MAIN);
-    lv_obj_set_style_text_font(icon_lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(icon_lbl, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_center(icon_lbl);
 
     lv_obj_t *lbl = lv_label_create(row);
     lv_label_set_text(lbl, "Manage Save Backups");
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_16, LV_PART_MAIN);
     lv_obj_set_flex_grow(lbl, 1);
 
     lv_obj_t *chevron = lv_label_create(row);
@@ -250,7 +356,7 @@ static void status_poll_cb(lv_timer_t *timer)
 static void build_status_section(lv_obj_t *body)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, EF_FG, LV_PART_MAIN);
     lv_label_set_text(title, "Backup Status");
 
@@ -260,17 +366,17 @@ static void build_status_section(lv_obj_t *body)
     lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
 
     lv_obj_t *r0 = lv_label_create(body);
-    lv_obj_set_style_text_font(r0, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(r0, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(r0, EF_FG, LV_PART_MAIN);
     lv_label_set_text_fmt(r0, "Title ID: %s", ctx_title_id[0] ? ctx_title_id : "N/A");
 
     backup_status_lbl = lv_label_create(body);
-    lv_obj_set_style_text_font(backup_status_lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(backup_status_lbl, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(backup_status_lbl, EF_FG, LV_PART_MAIN);
     lv_obj_set_style_pad_top(backup_status_lbl, 8, LV_PART_MAIN);
 
     lv_obj_t *r2 = lv_label_create(body);
-    lv_obj_set_style_text_font(r2, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(r2, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(r2, EF_FG_MUTED, LV_PART_MAIN);
     lv_obj_set_style_pad_top(r2, 8, LV_PART_MAIN);
     if (dash_settings.backup_server[0])
@@ -284,12 +390,11 @@ static void build_status_section(lv_obj_t *body)
 }
 
 /* ── Force Backup section ── */
-static lv_obj_t *force_btn_lbl = NULL;
 static lv_obj_t *force_btn_img = NULL;
 
 static void force_poll_update(void)
 {
-    if (!force_btn_lbl) return;
+    if (!force_btn_img) return;
 
     backup_state_t st = dash_backup_get_state();
 
@@ -301,23 +406,15 @@ static void force_poll_update(void)
         case BACKUP_CONNECTING:
         case BACKUP_SCANNING:
         case BACKUP_TRANSFERRING:
-            lv_label_set_text(force_btn_lbl, "Running...");
-            if (force_btn_img) lv_img_set_src(force_btn_img, &pill_btn_busy);
-            lv_obj_set_style_text_color(force_btn_lbl, EF_FG, LV_PART_MAIN);
+            pill_btn_set_style(&PILL_BUSY, EF_FG);
             break;
         default:
-            lv_label_set_text(force_btn_lbl, "Run Backup");
-            if (force_btn_img) {
-                if (focused)
-                    lv_img_set_src(force_btn_img, &pill_btn_highlight);
-                else if (dash_backup_is_synced())
-                    lv_img_set_src(force_btn_img, &pill_btn_inactive);
-                else
-                    lv_img_set_src(force_btn_img, &pill_btn_active);
-            }
-            lv_obj_set_style_text_color(force_btn_lbl,
-                (focused || !dash_backup_is_synced()) ? lv_color_hex(0x1d2021) : EF_FG,
-                LV_PART_MAIN);
+            if (focused)
+                pill_btn_set_style(&PILL_HIGHLIGHT, lv_color_hex(0x1d2021));
+            else if (dash_backup_is_synced())
+                pill_btn_set_style(&PILL_INACTIVE, EF_FG);
+            else
+                pill_btn_set_style(&PILL_ACTIVE, lv_color_hex(0x1d2021));
             break;
     }
 
@@ -342,7 +439,7 @@ static void force_poll_update(void)
 static void build_loading_placeholder(lv_obj_t *body, const char *section_title)
 {
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, EF_FG, LV_PART_MAIN);
     lv_label_set_text(title, section_title);
 
@@ -352,7 +449,7 @@ static void build_loading_placeholder(lv_obj_t *body, const char *section_title)
 
     backup_state_t st = dash_backup_get_state();
     if (!dash_settings.backup_server[0]) {
-        lv_label_set_text(sub, "No backup server configured.\nSet server address in lithiumx.toml.");
+        lv_label_set_text(sub, "No backup server configured.\nSet server address in sodiumx.toml.");
     } else if (st == BACKUP_CONNECTING) {
         lv_label_set_text(sub, "Connecting to backup server...");
     } else if (st == BACKUP_FAILED) {
@@ -379,7 +476,7 @@ static void build_force_section(lv_obj_t *body)
     }
 
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, EF_FG, LV_PART_MAIN);
     lv_label_set_text(title, "Force Backup");
 
@@ -411,26 +508,21 @@ static void build_force_section(lv_obj_t *body)
     lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *lbl = lv_label_create(left);
-    lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &dash_font_ui_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
     lv_label_set_text(lbl, "Backup Now");
 
     lv_obj_t *desc = lv_label_create(left);
-    lv_obj_set_style_text_font(desc, &lv_font_rubik_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(desc, &dash_font_ui_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(desc, EF_FG_MUTED, LV_PART_MAIN);
     lv_obj_set_width(desc, 300);
     lv_label_set_long_mode(desc, LV_LABEL_LONG_WRAP);
     lv_label_set_text(desc, "Send all changed saves to the backup server.");
 
-    /* Right: pre-rendered pill button (img as background, label centered on top) */
-    force_btn_img = lv_img_create(row);
-    lv_img_set_src(force_btn_img, &pill_btn_active);
-
-    force_btn_lbl = lv_label_create(force_btn_img);
-    lv_obj_set_style_text_font(force_btn_lbl, &lv_font_rubik_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(force_btn_lbl, lv_color_hex(0x1d2021), LV_PART_MAIN);
-    lv_label_set_text(force_btn_lbl, "Run Backup");
-    lv_obj_center(force_btn_lbl);
+    /* Right: sliced pill button */
+    create_pill_btn(row, "Run Backup", &PILL_ACTIVE, lv_color_hex(0x1d2021));
+    /* Store refs for state updates */
+    force_btn_img = pill_left_img; /* just need any ref to find the parent */
 
     /* Status readout below */
     lv_obj_t *status_row = lv_obj_create(body);
@@ -442,12 +534,12 @@ static void build_force_section(lv_obj_t *body)
     lv_obj_clear_flag(status_row, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *status_label = lv_label_create(status_row);
-    lv_obj_set_style_text_font(status_label, &lv_font_rubik_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(status_label, &dash_font_ui_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(status_label, EF_FG, LV_PART_MAIN);
     lv_label_set_text(status_label, "Last Backup");
 
     backup_status_lbl = lv_label_create(status_row);
-    lv_obj_set_style_text_font(backup_status_lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(backup_status_lbl, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(backup_status_lbl, EF_FG_MUTED, LV_PART_MAIN);
 
     /* Sync status row */
@@ -460,12 +552,12 @@ static void build_force_section(lv_obj_t *body)
     lv_obj_clear_flag(sync_row, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *sync_label = lv_label_create(sync_row);
-    lv_obj_set_style_text_font(sync_label, &lv_font_rubik_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(sync_label, &dash_font_ui_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(sync_label, EF_FG, LV_PART_MAIN);
     lv_label_set_text(sync_label, "Sync");
 
     backup_detail_lbl = lv_label_create(sync_row);
-    lv_obj_set_style_text_font(backup_detail_lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(backup_detail_lbl, &dash_font_ui_14, LV_PART_MAIN);
 
     force_poll_update();
     if (backup_poll_timer) lv_timer_del(backup_poll_timer);
@@ -609,23 +701,11 @@ static void update_restore_highlight(void)
     bool right_active = dash_panel_is_open() && !dash_panel_is_nav_focused();
 
     for (int i = 0; i < snapshot_count; i++) {
-        if (!restore_items[i]) continue;
-
-        /* Reset pill to inactive */
-        if (restore_btn_imgs[i]) {
-            lv_img_set_src(restore_btn_imgs[i], &pill_btn_inactive);
-            /* Update label color */
-            lv_obj_t *lbl = lv_obj_get_child(restore_btn_imgs[i], 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, EF_FG, LV_PART_MAIN);
-        }
+        pill_btn_restyle(restore_btns[i], &PILL_INACTIVE, EF_FG);
     }
 
-    if (restore_selected >= 0 && restore_selected < snapshot_count) {
-        if (restore_btn_imgs[restore_selected] && right_active) {
-            lv_img_set_src(restore_btn_imgs[restore_selected], &pill_btn_highlight);
-            lv_obj_t *lbl = lv_obj_get_child(restore_btn_imgs[restore_selected], 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, lv_color_hex(0x1d2021), LV_PART_MAIN);
-        }
+    if (restore_selected >= 0 && restore_selected < snapshot_count && right_active) {
+        pill_btn_restyle(restore_btns[restore_selected], &PILL_HIGHLIGHT, lv_color_hex(0x1d2021));
     }
 }
 
@@ -672,7 +752,7 @@ static void build_restore_section(lv_obj_t *body)
     }
 
     lv_obj_t *title = lv_label_create(body);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_24, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_24, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, EF_FG, LV_PART_MAIN);
     lv_label_set_text(title, "Restore Save");
 
@@ -682,13 +762,13 @@ static void build_restore_section(lv_obj_t *body)
     lv_obj_set_style_pad_bottom(sub, 16, LV_PART_MAIN);
 
     restore_status_lbl = lv_label_create(body);
-    lv_obj_set_style_text_font(restore_status_lbl, &lv_font_rubik_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(restore_status_lbl, &dash_font_ui_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(restore_status_lbl, EF_FG, LV_PART_MAIN);
     lv_label_set_text(restore_status_lbl, "Loading snapshots...");
     lv_obj_set_style_pad_bottom(restore_status_lbl, 12, LV_PART_MAIN);
 
     memset(restore_items, 0, sizeof(restore_items));
-    memset(restore_btn_imgs, 0, sizeof(restore_btn_imgs));
+    memset(restore_btns, 0, sizeof(restore_btns));
 
     if (restore_list_ready && snapshot_count > 0) {
         for (int i = 0; i < snapshot_count && i < MAX_SNAPSHOTS; i++) {
@@ -715,12 +795,12 @@ static void build_restore_section(lv_obj_t *body)
             lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
 
             lv_obj_t *name_lbl = lv_label_create(left);
-            lv_obj_set_style_text_font(name_lbl, &lv_font_rubik_16, LV_PART_MAIN);
+            lv_obj_set_style_text_font(name_lbl, &dash_font_ui_16, LV_PART_MAIN);
             lv_obj_set_style_text_color(name_lbl, EF_FG, LV_PART_MAIN);
             lv_label_set_text(name_lbl, snapshots[i].name);
 
             lv_obj_t *detail_lbl = lv_label_create(left);
-            lv_obj_set_style_text_font(detail_lbl, &lv_font_rubik_12, LV_PART_MAIN);
+            lv_obj_set_style_text_font(detail_lbl, &dash_font_ui_12, LV_PART_MAIN);
             lv_obj_set_style_text_color(detail_lbl, EF_FG_MUTED, LV_PART_MAIN);
             if (snapshots[i].total_size > 1024)
                 lv_label_set_text_fmt(detail_lbl, "%d files  |  %dKB",
@@ -729,16 +809,8 @@ static void build_restore_section(lv_obj_t *body)
                 lv_label_set_text_fmt(detail_lbl, "%d files  |  %dB",
                                       snapshots[i].file_count, snapshots[i].total_size);
 
-            /* Right: pill button */
-            lv_obj_t *pill = lv_img_create(row);
-            lv_img_set_src(pill, &pill_btn_inactive);
-            restore_btn_imgs[i] = pill;
-
-            lv_obj_t *pill_lbl = lv_label_create(pill);
-            lv_obj_set_style_text_font(pill_lbl, &lv_font_rubik_12, LV_PART_MAIN);
-            lv_obj_set_style_text_color(pill_lbl, EF_FG, LV_PART_MAIN);
-            lv_label_set_text(pill_lbl, "Restore");
-            lv_obj_center(pill_lbl);
+            /* Right: sliced pill button */
+            restore_btns[i] = create_pill_btn(row, "Restore", &PILL_INACTIVE, EF_FG);
 
             restore_items[i] = row;
         }
@@ -780,8 +852,7 @@ static bool restore_on_key(lv_key_t key)
         return true;
     }
     if (key == LV_KEY_ENTER && !restore_in_progress) {
-        if (restore_btn_imgs[restore_selected])
-            lv_img_set_src(restore_btn_imgs[restore_selected], &pill_btn_busy);
+        pill_btn_restyle(restore_btns[restore_selected], &PILL_BUSY, EF_FG);
         SDL_Thread *t = SDL_CreateThread(restore_snapshot_thread, "bk_restore",
                                          (void *)(intptr_t)restore_selected);
         SDL_DetachThread(t);

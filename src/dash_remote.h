@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Remote debug/test interface for LithiumX
+// Remote debug/test interface for SodiumX
 // Line-based TCP server for input injection, screenshots, log streaming.
 // Works on SDL2 (desktop) and nxdk (Xbox) builds.
 //
@@ -26,11 +26,11 @@ extern "C" {
 #endif
 
 #ifdef NXDK
-#define DASH_DEBUG_WAIT_FLAG "E:\\UDATA\\LithiumX\\debug_wait"
-#define DASH_REBUILD_DB_FLAG "E:\\UDATA\\LithiumX\\rebuild_db"
+#define DASH_DEBUG_WAIT_FLAG "E:\\UDATA\\SodiumX\\debug_wait"
+#define DASH_REBUILD_DB_FLAG "E:\\UDATA\\SodiumX\\rebuild_db"
 #else
-#define DASH_DEBUG_WAIT_FLAG "/tmp/lithiumx_debug_wait"
-#define DASH_REBUILD_DB_FLAG "/tmp/lithiumx_rebuild_db"
+#define DASH_DEBUG_WAIT_FLAG "/tmp/sodiumx_debug_wait"
+#define DASH_REBUILD_DB_FLAG "/tmp/sodiumx_rebuild_db"
 #endif
 
 #define DASH_REMOTE_MAX_CLIENTS 4

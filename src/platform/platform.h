@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 #if defined(__linux__) || defined(__APPLE__)
 #include "linux/dash_linux.h"
@@ -20,7 +20,7 @@ extern "C" {
 void platform_init(int *w, int *h);
 
 /*
- * Anything you need to do when exiting lithiumX
+ * Anything you need to do when exiting SodiumX
 */
 void platform_quit(lv_quit_event_t event);
 

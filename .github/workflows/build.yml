@@ -36,7 +36,7 @@ jobs:
       with:
         name: dash_xbox
         path: |
-          LithiumX.iso
+          SodiumX.iso
           bin
 
   Windows:
@@ -68,4 +68,4 @@ jobs:
       with:
         name: dash_windows
         path: |
-          build/LithiumX.exe
+          build/SodiumX.exe

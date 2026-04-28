@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <lvgl.h>
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "../platform.h"
 #include "lvgl_drivers/lv_port_disp.h"
 #include "lvgl_drivers/lv_port_indev.h"
@@ -139,7 +139,7 @@ void platform_init(int *w, int *h)
     // Mount the DVD drive
     nxMountDrive('D', "\\Device\\CdRom0");
 
-    // Mount root of LithiumX xbe to Q:
+    // Mount root of SodiumX xbe to Q:
     char targetPath[MAX_PATH];
     nxGetCurrentXbeNtPath(targetPath);
     *(strrchr(targetPath, '\\') + 1) = '\0';
@@ -170,11 +170,11 @@ void platform_init(int *w, int *h)
     debugPrint(".");
 
     CreateDirectoryA("E:\\UDATA", NULL);
-    CreateDirectoryA("E:\\UDATA\\LithiumX", NULL);
-    FILE *fp = fopen("E:\\UDATA\\LithiumX\\TitleMeta.xbx", "wb");
+    CreateDirectoryA("E:\\UDATA\\SodiumX", NULL);
+    FILE *fp = fopen("E:\\UDATA\\SodiumX\\TitleMeta.xbx", "wb");
     if (fp)
     {
-        fprintf(fp, "TitleName=LithiumX Dashboard\r\n");
+        fprintf(fp, "TitleName=SodiumX Dashboard\r\n");
         fclose(fp);
     }
     debugPrint(".");

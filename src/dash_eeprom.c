@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 #ifdef NXDK
 #include <xboxkrnl/xboxkrnl.h>

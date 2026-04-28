@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2022 Ryzee119
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 #include "dash_anim.h"
 
 /* ============================================================
@@ -36,7 +36,7 @@ static const mainmenu_item_t menu_items[] = {
     {"Utilities",           LV_SYMBOL_LIST,     dash_utilities, NULL},
     {"Settings",            LV_SYMBOL_SETTINGS, dash_settings_new, NULL},
     {"Settings (Legacy)",   LV_SYMBOL_SETTINGS, dash_settings_page, NULL},
-    {"About LithiumX",      LV_SYMBOL_EYE_OPEN, dash_open_about, NULL},
+    {"About SodiumX",       LV_SYMBOL_EYE_OPEN, dash_open_about, NULL},
     {"Reboot",              LV_SYMBOL_REFRESH,  dash_reboot, "Accept \"Reboot\""},
     {"Shutdown",            LV_SYMBOL_POWER,    dash_shutdown, "Accept \"Shutdown\""},
 };
@@ -193,10 +193,10 @@ void dash_mainmenu_open()
     lv_obj_t *eyebrow = lv_label_create(title_col);
     lv_obj_add_style(eyebrow, &eyebrow_style, LV_PART_MAIN);
     lv_obj_set_style_text_color(eyebrow, dash_accent_color, LV_PART_MAIN);
-    lv_label_set_text(eyebrow, "LITHIUMX");
+    lv_label_set_text(eyebrow, "SODIUMX");
 
     lv_obj_t *title = lv_label_create(title_col);
-    lv_obj_set_style_text_font(title, &lv_font_rubik_20, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &dash_font_ui_20, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, lv_color_white(), LV_PART_MAIN);
     lv_label_set_text(title, "Main Menu");
 
@@ -239,13 +239,13 @@ void dash_mainmenu_open()
         lv_obj_t *icon_lbl = lv_label_create(icon_tile);
         lv_label_set_text(icon_lbl, menu_items[i].icon_symbol);
         lv_obj_set_style_text_color(icon_lbl, EF_FG_MUTED, LV_PART_MAIN);
-        lv_obj_set_style_text_font(icon_lbl, &lv_font_rubik_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(icon_lbl, &dash_font_ui_14, LV_PART_MAIN);
         lv_obj_center(icon_lbl);
 
         /* Label */
         lv_obj_t *lbl = lv_label_create(row);
         lv_label_set_text(lbl, menu_items[i].label);
-        lv_obj_set_style_text_font(lbl, &lv_font_rubik_16, LV_PART_MAIN);
+        lv_obj_set_style_text_font(lbl, &dash_font_ui_16, LV_PART_MAIN);
         lv_obj_set_flex_grow(lbl, 1);
 
         /* Chevron */
@@ -409,7 +409,7 @@ static void dash_clear_recent(void *param)
 static void dash_open_about(void *param)
 {
     (void)param;
-    const char *url = "https://github.com/Ryzee119/LithiumX";
+    const char *url = "https://github.com/Promises/SodiumX";
 
     lv_obj_t *window = container_open();
     lv_obj_t *qr = lv_qrcode_create(window, 256, lv_color_black(), lv_color_white());
@@ -418,7 +418,7 @@ static void dash_open_about(void *param)
     lv_obj_update_layout(window);
 
     lv_obj_t *label = lv_label_create(window);
-    lv_label_set_text(label, "See github.com/Ryzee119/LithiumX");
+    lv_label_set_text(label, "See github.com/Promises/SodiumX");
     lv_obj_update_layout(label);
     lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_height(window, lv_obj_get_height(qr) + lv_obj_get_height(label) + 2);

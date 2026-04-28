@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LithiumX E2E Test Suite
+SodiumX E2E Test Suite
 Automated UI testing via the remote debug server.
 Validates state via `status` command and takes screenshots for visual review.
 
@@ -15,7 +15,7 @@ import time
 import subprocess
 
 sys.path.insert(0, os.path.dirname(__file__))
-from remote import LithiumXRemote
+from remote import SodiumXRemote
 
 SCREENSHOT_DIR = "build/screenshots/e2e"
 FAILURES = []
@@ -234,7 +234,7 @@ def test_edge_cases(remote):
 def main():
     quick = "--quick" in sys.argv
 
-    remote = LithiumXRemote()
+    remote = SodiumXRemote()
     try:
         remote.connect()
     except ConnectionRefusedError:
@@ -242,7 +242,7 @@ def main():
         sys.exit(1)
 
     print("=" * 50)
-    print("LithiumX E2E Test Suite")
+    print("SodiumX E2E Test Suite")
     print("=" * 50)
 
     test_initial_state(remote)

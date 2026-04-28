@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#include "lithiumx.h"
+#include "sodiumx.h"
 
 typedef bool (*browser_item_selection_cb)(const char *selected_path);
 
