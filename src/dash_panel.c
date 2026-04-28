@@ -294,6 +294,16 @@ static int panel_snapshot(char *buf, int size)
             pos += snprintf(buf + pos, size - pos, " [ACTIVE]");
     }
     pos += snprintf(buf + pos, size - pos, "\n");
+
+    /* Active section content snapshot */
+    if (active_section >= 0 && active_section < cfg->section_count) {
+        const dash_panel_section_t *sec = &cfg->sections[active_section];
+        if (sec->snapshot) {
+            int wrote = sec->snapshot(buf + pos, size - pos);
+            if (wrote > 0) pos += wrote;
+        }
+    }
+
     return pos;
 }
 

@@ -83,14 +83,26 @@ static void section_header(lv_obj_t *body, const char *title_text, const char *s
  * ══════════════════════════════════════════════════════════════════ */
 #define MAX_TOGGLE_ROWS 10
 
+typedef enum {
+    ROW_TOGGLE,
+    ROW_TEXT,
+} setting_row_type_t;
+
 typedef struct {
+    setting_row_type_t type;
+    const char *label;
+    lv_obj_t *row;
+    /* Toggle fields */
     bool *value;
     lv_obj_t *track_img;
     lv_obj_t *thumb_img;
-    lv_obj_t *row;
-} toggle_row_t;
+    /* Text field */
+    char *text_buf;
+    int text_buf_size;
+    lv_obj_t *text_label;
+} setting_row_t;
 
-static toggle_row_t toggle_rows[MAX_TOGGLE_ROWS];
+static setting_row_t toggle_rows[MAX_TOGGLE_ROWS];
 static int toggle_row_count = 0;
 static int toggle_row_selected = 0;
 
@@ -120,10 +132,54 @@ static void create_toggle_row(lv_obj_t *parent, const char *label_text,
     lv_img_set_src(thumb, *value ? &pill_toggle_thumb_on : &pill_toggle_thumb_off);
     lv_obj_set_pos(thumb, *value ? 20 : -1, -1);
 
+    toggle_rows[toggle_row_count].type = ROW_TOGGLE;
+    toggle_rows[toggle_row_count].label = label_text;
     toggle_rows[toggle_row_count].value = value;
     toggle_rows[toggle_row_count].track_img = track;
     toggle_rows[toggle_row_count].thumb_img = thumb;
     toggle_rows[toggle_row_count].row = row;
+    toggle_rows[toggle_row_count].text_buf = NULL;
+    toggle_rows[toggle_row_count].text_label = NULL;
+    toggle_row_count++;
+}
+
+static void create_text_row(lv_obj_t *parent, const char *label_text,
+                             const char *desc_text, char *buf, int buf_size, bool first)
+{
+    if (toggle_row_count >= MAX_TOGGLE_ROWS) return;
+
+    lv_obj_t *row = create_setting_row_new(parent, label_text, desc_text, first);
+
+    /* Text field display (shows current value, styled as editable) */
+    lv_obj_t *text_container = lv_obj_create(row);
+    lv_obj_set_size(text_container, LV_SIZE_CONTENT, 27);
+    lv_obj_set_style_bg_color(text_container, lv_color_hex(0x2e383c), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(text_container, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(text_container, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(text_container, lv_color_hex(0x414b50), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(text_container, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(text_container, 6, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(text_container, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(text_container, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(text_container, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(text_container, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(text_container, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *text_lbl = lv_label_create(text_container);
+    lv_obj_set_style_text_font(text_lbl, &lv_font_jetbrains_mono_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(text_lbl, EF_FG, LV_PART_MAIN);
+    lv_label_set_text(text_lbl, buf[0] ? buf : "---");
+    lv_obj_center(text_lbl);
+
+    toggle_rows[toggle_row_count].type = ROW_TEXT;
+    toggle_rows[toggle_row_count].row = row;
+    toggle_rows[toggle_row_count].text_buf = buf;
+    toggle_rows[toggle_row_count].label = label_text;
+    toggle_rows[toggle_row_count].text_buf_size = buf_size;
+    toggle_rows[toggle_row_count].text_label = text_lbl;
+    toggle_rows[toggle_row_count].value = NULL;
+    toggle_rows[toggle_row_count].track_img = text_container;  /* reuse for focus border */
+    toggle_rows[toggle_row_count].thumb_img = NULL;
     toggle_row_count++;
 }
 
@@ -132,25 +188,41 @@ static void update_toggle_visuals(void)
     bool right_active = dash_panel_is_open() && !dash_panel_is_nav_focused();
 
     for (int i = 0; i < toggle_row_count; i++) {
-        toggle_row_t *t = &toggle_rows[i];
+        setting_row_t *t = &toggle_rows[i];
         bool focused = right_active && (i == toggle_row_selected);
-        bool on = *t->value;
 
-        if (focused) {
-            lv_img_set_src(t->track_img, on ? &pill_toggle_on_focus : &pill_toggle_off_focus);
-        } else {
-            lv_img_set_src(t->track_img, on ? &pill_toggle_on : &pill_toggle_off);
+        if (t->type == ROW_TOGGLE) {
+            bool on = *t->value;
+            if (focused) {
+                lv_img_set_src(t->track_img, on ? &pill_toggle_on_focus : &pill_toggle_off_focus);
+            } else {
+                lv_img_set_src(t->track_img, on ? &pill_toggle_on : &pill_toggle_off);
+            }
+            lv_img_set_src(t->thumb_img, on ? &pill_toggle_thumb_on : &pill_toggle_thumb_off);
+            lv_obj_set_pos(t->thumb_img, on ? 20 : -1, -1);
+        } else if (t->type == ROW_TEXT) {
+            /* Highlight text field border on focus */
+            if (focused) {
+                lv_obj_set_style_border_color(t->track_img, lv_color_hex(0xa7c080), LV_PART_MAIN);
+                lv_obj_set_style_border_width(t->track_img, 2, LV_PART_MAIN);
+            } else {
+                lv_obj_set_style_border_color(t->track_img, lv_color_hex(0x414b50), LV_PART_MAIN);
+                lv_obj_set_style_border_width(t->track_img, 1, LV_PART_MAIN);
+            }
         }
-        lv_img_set_src(t->thumb_img, on ? &pill_toggle_thumb_on : &pill_toggle_thumb_off);
-        lv_obj_set_pos(t->thumb_img, on ? 20 : -1, -1);
     }
 }
 
 static void toggle_current(void)
 {
     if (toggle_row_selected < 0 || toggle_row_selected >= toggle_row_count) return;
-    toggle_row_t *t = &toggle_rows[toggle_row_selected];
-    *t->value = !*t->value;
+    setting_row_t *t = &toggle_rows[toggle_row_selected];
+
+    if (t->type == ROW_TOGGLE) {
+        *t->value = !*t->value;
+    } else if (t->type == ROW_TEXT) {
+        // TODO: Keyboard input
+    }
     update_toggle_visuals();
 }
 
@@ -188,17 +260,49 @@ static void reset_toggle_rows(void)
     toggle_row_selected = 0;
 }
 
+/* ── Snapshot: describes toggle/text rows for remote status ── */
+static int toggles_snapshot(char *buf, int size)
+{
+    if (toggle_row_count == 0) return 0;
+
+    bool right_active = dash_panel_is_open() && !dash_panel_is_nav_focused();
+    int pos = 0;
+    pos += snprintf(buf + pos, size - pos, "content=\n");
+    for (int i = 0; i < toggle_row_count && pos < size - 1; i++) {
+        setting_row_t *t = &toggle_rows[i];
+        bool focused = right_active && (i == toggle_row_selected);
+
+        if (t->type == ROW_TOGGLE) {
+            pos += snprintf(buf + pos, size - pos, "  \"%s\" = %s",
+                            t->label, *t->value ? "on" : "off");
+        } else if (t->type == ROW_TEXT) {
+            pos += snprintf(buf + pos, size - pos, "  \"%s\" = \"%s\"",
+                            t->label, t->text_buf ? t->text_buf : "");
+        }
+        if (focused)
+            pos += snprintf(buf + pos, size - pos, " [FOCUSED]");
+        pos += snprintf(buf + pos, size - pos, "\n");
+    }
+    return pos;
+}
+
 /* ══════════════════════════════════════════════════════════════════
  *  Section: Display
  * ══════════════════════════════════════════════════════════════════ */
+static char test_text_buf[64] = "Hello SodiumX";
+
 static void build_display(lv_obj_t *body)
 {
     section_header(body, "Display", "How SodiumX renders to your TV.");
     reset_toggle_rows();
 
+    create_text_row(body, "Test field",
+        "Editable text input (press A to edit).",
+        test_text_buf, sizeof(test_text_buf), true);
+
     create_toggle_row(body, "Animated background",
         "GPU-rendered ambient gradient under the rail.",
-        &dash_settings.animated_background, true);
+        &dash_settings.animated_background, false);
     create_toggle_row(body, "Backdrop blur",
         "Use selected game's boxart as a blurred backdrop.",
         &dash_settings.backdrop_blur, false);
@@ -381,14 +485,14 @@ static void settings_on_close(void)
 }
 
 static const dash_panel_section_t settings_sections[] = {
-    { "Display",   LV_SYMBOL_IMAGE,      build_display,  toggles_on_key, false },
-    { "Network",   LV_SYMBOL_WIFI,       build_network,  toggles_on_key, false },
-    { "Audio",     LV_SYMBOL_VOLUME_MAX, build_audio,    toggles_on_key, false },
-    { "System",    LV_SYMBOL_SETTINGS,   build_system,   toggles_on_key, false },
-    { "Backup",    LV_SYMBOL_UPLOAD,     build_backup,   toggles_on_key, false },
+    { "Display",   LV_SYMBOL_IMAGE,      build_display,  toggles_on_key, false, toggles_snapshot },
+    { "Network",   LV_SYMBOL_WIFI,       build_network,  toggles_on_key, false, toggles_snapshot },
+    { "Audio",     LV_SYMBOL_VOLUME_MAX, build_audio,    toggles_on_key, false, toggles_snapshot },
+    { "System",    LV_SYMBOL_SETTINGS,   build_system,   toggles_on_key, false, toggles_snapshot },
+    { "Backup",    LV_SYMBOL_UPLOAD,     build_backup,   toggles_on_key, false, toggles_snapshot },
 #define LV_SYMBOL_MICROCHIP "\xEF\x8B\x9B" /* U+F2DB */
-    { "Hardware",  LV_SYMBOL_MICROCHIP,  build_hardware, NULL, true },
-    { "About",     LV_SYMBOL_EYE_OPEN,   build_about,    NULL, true },
+    { "Hardware",  LV_SYMBOL_MICROCHIP,  build_hardware, NULL, true,  NULL },
+    { "About",     LV_SYMBOL_EYE_OPEN,   build_about,    NULL, true,  NULL },
 };
 
 void dash_settings_new_open(void)

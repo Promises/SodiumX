@@ -116,13 +116,6 @@ static void pill_btn_restyle(lv_obj_t *btn, const pill_btn_style_t *style, lv_co
 }
 
 /* ── State ── */
-static bool ctx_menu_open = false;
-static lv_obj_t *ctx_overlay = NULL;
-static lv_obj_t *ctx_card = NULL;
-static lv_obj_t *ctx_item_objs[4];
-static int ctx_selected = 0;
-
-/* Game info from DB */
 static int ctx_db_id = -1;
 static char ctx_title[MAX_META_LEN];
 static char ctx_title_id[16];
@@ -165,49 +158,20 @@ static int ctx_db_callback(void *param, int argc, char **argv, char **azColName)
 }
 
 /* ══════════════════════════════════════════════════════════════════
- *  Context menu (START menu style overlay)
+ *  Context menu — uses shared overlay menu widget
  * ══════════════════════════════════════════════════════════════════ */
-static void ctx_highlight_item(int index)
-{
-    for (int i = 0; i < 1; i++) {
-        lv_obj_remove_style(ctx_item_objs[i], &overlay_item_focused_style, LV_PART_MAIN);
-        lv_obj_add_style(ctx_item_objs[i], &overlay_item_style, LV_PART_MAIN);
-        lv_obj_set_style_translate_x(ctx_item_objs[i], 0, LV_PART_MAIN);
-    }
-    if (index == 0) {
-        lv_obj_remove_style(ctx_item_objs[0], &overlay_item_style, LV_PART_MAIN);
-        lv_obj_add_style(ctx_item_objs[0], &overlay_item_focused_style, LV_PART_MAIN);
-        dash_anim_x(ctx_item_objs[0],
-                     lv_obj_get_style_translate_x(ctx_item_objs[0], LV_PART_MAIN), 4, 200);
-    }
-}
+static void ctx_open_backup_browser(void *param);
 
-static void ctx_menu_close(void)
-{
-    if (!ctx_menu_open || !ctx_overlay) return;
-    ctx_menu_open = false;
-    dash_anim_overlay_out(ctx_card, 200, NULL);
-    lv_obj_del_delayed(ctx_overlay, 220);
-    ctx_overlay = NULL;
-    ctx_card = NULL;
-    dash_focus_pop_depth();
-}
-
-static void ctx_open_backup_browser(void);
-
-static void ctx_key_handler(lv_event_t *event)
-{
-    lv_key_t key = *((lv_key_t *)lv_event_get_param(event));
-    if (key == LV_KEY_ESC || key == DASH_CONTEXT_PAGE) {
-        ctx_menu_close();
-    } else if (key == LV_KEY_ENTER) {
-        ctx_open_backup_browser();
-    }
-}
+static overlay_menu_item_t ctx_items[] = {
+    {"Manage Save Backups", LV_SYMBOL_UPLOAD, NULL, NULL, NULL},
+};
 
 void dash_context_menu_open(int db_id)
 {
-    if (ctx_menu_open) { ctx_menu_close(); return; }
+    if (dash_overlay_menu_is_open()) {
+        dash_overlay_menu_close();
+        return;
+    }
 
     ctx_db_id = db_id;
     ctx_title[0] = '\0';
@@ -218,126 +182,18 @@ void dash_context_menu_open(int db_id)
     db_command_with_callback(cmd, ctx_db_callback, NULL);
     if (!ctx_title[0]) strncpy(ctx_title, "Unknown", sizeof(ctx_title) - 1);
 
-    ctx_menu_open = true;
-    ctx_selected = 0;
+    /* Wire up callback (can't be static const because cb_param changes) */
+    ctx_items[0].cb = ctx_open_backup_browser;
 
-    /* Scrim */
-    ctx_overlay = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(ctx_overlay, lv_obj_get_width(lv_scr_act()), lv_obj_get_height(lv_scr_act()));
-    lv_obj_set_style_bg_color(ctx_overlay, lv_color_hex(0x0b0d0e), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(ctx_overlay, 140, LV_PART_MAIN);
-    lv_obj_set_style_border_width(ctx_overlay, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(ctx_overlay, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(ctx_overlay, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(ctx_overlay, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* Card */
-    ctx_card = lv_obj_create(ctx_overlay);
-    lv_obj_add_style(ctx_card, &overlay_card_style, LV_PART_MAIN);
-    lv_obj_set_width(ctx_card, 420);
-    lv_obj_set_height(ctx_card, LV_SIZE_CONTENT);
-    lv_obj_center(ctx_card);
-    lv_obj_set_layout(ctx_card, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(ctx_card, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_all(ctx_card, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(ctx_card, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(ctx_card, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* Header */
-    lv_obj_t *header = lv_obj_create(ctx_card);
-    lv_obj_set_size(header, lv_pct(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(header, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(header, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_side(header, LV_BORDER_SIDE_BOTTOM, LV_PART_MAIN);
-    lv_obj_set_style_border_color(header, EF_FG, LV_PART_MAIN);
-    lv_obj_set_style_border_opa(header, 20, LV_PART_MAIN);
-    lv_obj_set_style_pad_left(header, 22, LV_PART_MAIN);
-    lv_obj_set_style_pad_right(header, 22, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(header, 18, LV_PART_MAIN);
-    lv_obj_set_style_pad_bottom(header, 18, LV_PART_MAIN);
-    lv_obj_set_style_radius(header, 0, LV_PART_MAIN);
-    lv_obj_set_layout(header, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *title_col = lv_obj_create(header);
-    lv_obj_set_size(title_col, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(title_col, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(title_col, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(title_col, 0, LV_PART_MAIN);
-    lv_obj_set_layout(title_col, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(title_col, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(title_col, 2, LV_PART_MAIN);
-    lv_obj_clear_flag(title_col, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *eyebrow = lv_label_create(title_col);
-    lv_obj_add_style(eyebrow, &eyebrow_style, LV_PART_MAIN);
-    lv_obj_set_style_text_color(eyebrow, dash_accent_color, LV_PART_MAIN);
-    lv_label_set_text(eyebrow, ctx_title_id[0] ? ctx_title_id : "GAME");
-
-    lv_obj_t *title = lv_label_create(title_col);
-    lv_obj_set_style_text_font(title, &dash_font_ui_20, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, lv_color_white(), LV_PART_MAIN);
-    lv_obj_set_width(title, 300);
-    lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
-    lv_label_set_text(title, ctx_title);
-
-    lv_obj_t *hint = lv_label_create(header);
-    lv_obj_add_style(hint, &mono_small_style, LV_PART_MAIN);
-    lv_label_set_text(hint, "B " LV_SYMBOL_RIGHT " close");
-
-    /* Single menu item */
-    lv_obj_t *list = lv_obj_create(ctx_card);
-    lv_obj_set_size(list, lv_pct(100), LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(list, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(list, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(list, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(list, 0, LV_PART_MAIN);
-    lv_obj_set_layout(list, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_clear_flag(list, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *row = lv_obj_create(list);
-    lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
-    lv_obj_add_style(row, &overlay_item_style, LV_PART_MAIN);
-    lv_obj_set_layout(row, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *icon_tile = lv_obj_create(row);
-    lv_obj_set_size(icon_tile, 32, 32);
-    lv_obj_set_style_radius(icon_tile, 8, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(icon_tile, EF_FG, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(icon_tile, 15, LV_PART_MAIN);
-    lv_obj_set_style_border_width(icon_tile, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(icon_tile, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *icon_lbl = lv_label_create(icon_tile);
-    lv_label_set_text(icon_lbl, LV_SYMBOL_UPLOAD);
-    lv_obj_set_style_text_color(icon_lbl, EF_FG_MUTED, LV_PART_MAIN);
-    lv_obj_set_style_text_font(icon_lbl, &dash_font_ui_14, LV_PART_MAIN);
-    lv_obj_center(icon_lbl);
-
-    lv_obj_t *lbl = lv_label_create(row);
-    lv_label_set_text(lbl, "Manage Save Backups");
-    lv_obj_set_style_text_font(lbl, &dash_font_ui_16, LV_PART_MAIN);
-    lv_obj_set_flex_grow(lbl, 1);
-
-    lv_obj_t *chevron = lv_label_create(row);
-    lv_label_set_text(chevron, LV_SYMBOL_RIGHT);
-    lv_obj_set_style_text_color(chevron, EF_FG_MUTED, LV_PART_MAIN);
-    lv_obj_set_style_opa(chevron, 128, LV_PART_MAIN);
-
-    ctx_item_objs[0] = row;
-    ctx_highlight_item(0);
-
-    dash_anim_overlay_in(ctx_card, 300);
-    lv_group_add_obj(lv_group_get_default(), ctx_card);
-    lv_obj_add_event_cb(ctx_card, ctx_key_handler, LV_EVENT_KEY, NULL);
-    dash_focus_change_depth(ctx_card);
+    overlay_menu_config_t config = {
+        .eyebrow    = ctx_title_id[0] ? ctx_title_id : "GAME",
+        .title      = ctx_title,
+        .close_hint = "B " LV_SYMBOL_RIGHT " close",
+        .close_key  = DASH_CONTEXT_PAGE,
+        .items      = ctx_items,
+        .item_count = DASH_ARRAY_SIZE(ctx_items),
+    };
+    dash_overlay_menu_open(&config);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -865,9 +721,9 @@ static bool restore_on_key(lv_key_t key)
 
 /* ── Panel config ── */
 static const dash_panel_section_t backup_sections[] = {
-    { "Backup Status", LV_SYMBOL_EYE_OPEN, build_status_section, NULL,           true },
-    { "Force Backup",  LV_SYMBOL_UPLOAD,   build_force_section,  force_on_key,   false },
-    { "Restore Save",  LV_SYMBOL_DOWNLOAD, build_restore_section, restore_on_key, false },
+    { "Backup Status", LV_SYMBOL_EYE_OPEN, build_status_section, NULL,           true,  NULL },
+    { "Force Backup",  LV_SYMBOL_UPLOAD,   build_force_section,  force_on_key,   false, NULL },
+    { "Restore Save",  LV_SYMBOL_DOWNLOAD, build_restore_section, restore_on_key, false, NULL },
 };
 
 static void backup_panel_on_close(void)
@@ -881,8 +737,9 @@ static void backup_panel_on_close(void)
     restore_status_lbl = NULL;
 }
 
-static void ctx_open_backup_browser(void)
+static void ctx_open_backup_browser(void *param)
 {
+    (void)param;
     restore_list_ready = false;
     restore_list_built = false;
     snapshot_count = 0;
@@ -896,23 +753,4 @@ static void ctx_open_backup_browser(void)
     panel_cfg.on_close = backup_panel_on_close;
 
     dash_panel_open(&panel_cfg);
-}
-
-/* ── Snapshot for remote status ── */
-static int context_menu_snapshot(char *buf, int size)
-{
-    if (!ctx_menu_open) return 0;
-
-    int pos = 0;
-    pos += snprintf(buf + pos, size - pos, "[context_menu]\n");
-    pos += snprintf(buf + pos, size - pos, "game=\"%s\"\n", ctx_title);
-    pos += snprintf(buf + pos, size - pos, "title_id=\"%s\"\n",
-                    ctx_title_id[0] ? ctx_title_id : "");
-    pos += snprintf(buf + pos, size - pos, "items=\"Manage Save Backups\" [SELECTED]\n");
-    return pos;
-}
-
-void dash_context_menu_snapshot_register(void)
-{
-    dash_snapshot_register(context_menu_snapshot);
 }

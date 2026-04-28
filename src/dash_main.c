@@ -191,9 +191,7 @@ static char err_msg_toml[256], err_msg_db[256];
 static bool in_memory_warning;
 /* Snapshot registrations (called once) */
 extern void dash_scroller_snapshot_register(void);
-extern void dash_mainmenu_snapshot_register(void);
 extern void dash_panel_snapshot_register(void);
-extern void dash_context_menu_snapshot_register(void);
 
 static bool snapshots_registered = false;
 
@@ -201,9 +199,8 @@ void dash_init(void)
 {
     if (!snapshots_registered) {
         dash_scroller_snapshot_register();
-        dash_mainmenu_snapshot_register();
+        dash_overlay_menu_snapshot_register();
         dash_panel_snapshot_register();
-        dash_context_menu_snapshot_register();
         snapshots_registered = true;
     }
 

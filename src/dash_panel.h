@@ -31,6 +31,9 @@ typedef struct {
     bool (*on_key)(lv_key_t key);
     /* If true, right pane cannot be focused (view-only, no interactive content). */
     bool viewonly;
+    /* Optional: describe the content pane for remote status snapshots.
+     * Append to buf, return chars written. Called only when this section is active. */
+    int (*snapshot)(char *buf, int size);
 } dash_panel_section_t;
 
 typedef struct {
