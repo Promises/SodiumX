@@ -1,0 +1,23 @@
+# Build nxdk toolchain from submodule
+FROM ghcr.io/xboxdev/nxdk-buildbase:git-ee8f698d AS nxdk-builder
+
+COPY src/libs/nxdk/ /usr/src/nxdk/
+ENV NXDK_DIR=/usr/src/nxdk
+RUN cd /usr/src/nxdk && make tools -j$(nproc)
+RUN eval $(/usr/src/nxdk/bin/activate -s); cd /usr/src/nxdk && make NXDK_ONLY=y -j$(nproc)
+
+# Build SodiumX
+FROM ghcr.io/xboxdev/nxdk-runbase:git-ee8f698d AS builder
+
+COPY --from=nxdk-builder /usr/src/nxdk/ /usr/src/nxdk/
+ENV NXDK_DIR=/usr/src/nxdk
+
+WORKDIR /usr/src/sodiumx
+COPY . .
+
+RUN eval $(/usr/src/nxdk/bin/activate -s) && \
+    make -f Makefile.nxdk NXDK_DIR=/usr/src/nxdk -j$(nproc)
+
+# Output stage - just the build artifacts
+FROM scratch AS output
+COPY --from=builder /usr/src/sodiumx/bin/ /

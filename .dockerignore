@@ -1,0 +1,12 @@
+build/
+bin/
+docs/
+.vscode/
+.git/
+*.iso
+*.obj
+*.d
+*.exe
+*.inl
+*.db
+sodiumx.toml
