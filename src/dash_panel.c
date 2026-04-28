@@ -274,3 +274,30 @@ bool dash_panel_is_nav_focused(void)
 {
     return !right_focused;
 }
+
+/* ── Snapshot for remote status ── */
+static int panel_snapshot(char *buf, int size)
+{
+    if (!panel_open || !cfg) return 0;
+
+    int pos = 0;
+    pos += snprintf(buf + pos, size - pos, "[panel]\n");
+    pos += snprintf(buf + pos, size - pos, "title=\"%s\"\n",
+                    cfg->nav_title ? cfg->nav_title : "?");
+    pos += snprintf(buf + pos, size - pos, "focus=%s\n",
+                    right_focused ? "content" : "nav");
+    pos += snprintf(buf + pos, size - pos, "sections=");
+    for (int i = 0; i < cfg->section_count && pos < size - 1; i++) {
+        pos += snprintf(buf + pos, size - pos, "%s\"%s\"",
+                        i > 0 ? ", " : "", cfg->sections[i].label);
+        if (i == active_section)
+            pos += snprintf(buf + pos, size - pos, " [ACTIVE]");
+    }
+    pos += snprintf(buf + pos, size - pos, "\n");
+    return pos;
+}
+
+void dash_panel_snapshot_register(void)
+{
+    dash_snapshot_register(panel_snapshot);
+}

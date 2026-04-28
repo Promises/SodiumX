@@ -1338,3 +1338,49 @@ const char *dash_scroller_get_focused_title(void)
     title_t *t = tile->user_data;
     return t ? t->title : NULL;
 }
+
+/* ── Snapshot for remote status ── */
+static int scroller_snapshot(char *buf, int size)
+{
+    int page = page_current;
+    const char *page_name = dash_scroller_get_title(page);
+    int sel = selected_index;
+    int total = dash_scroller_get_item_count();
+    const char *focused = dash_scroller_get_focused_title();
+    int tab = dash_get_tab();
+    int page_count = dash_scroller_get_page_count();
+
+    int pos = 0;
+    pos += snprintf(buf + pos, size - pos, "[rail]\n");
+    pos += snprintf(buf + pos, size - pos, "tab=%d\n", tab);
+    pos += snprintf(buf + pos, size - pos, "page=%d/%d name=\"%s\"\n",
+                    page + 1, page_count, page_name ? page_name : "?");
+    pos += snprintf(buf + pos, size - pos, "selected=%d/%d\n", sel, total);
+    pos += snprintf(buf + pos, size - pos, "title=\"%s\"\n", focused ? focused : "");
+
+    /* List nearby tiles for context */
+    if (rail) {
+        int cnt = lv_obj_get_child_cnt(rail);
+        int start = (sel - 3 > 1) ? sel - 3 : 1;
+        int end = (sel + 3 < cnt - 1) ? sel + 3 : cnt - 1;
+        pos += snprintf(buf + pos, size - pos, "visible_tiles=");
+        for (int i = start; i <= end && pos < size - 1; i++) {
+            lv_obj_t *tile = lv_obj_get_child(rail, i);
+            if (!tile) continue;
+            title_t *t = tile->user_data;
+            const char *name = (t && t->title[0]) ? t->title : "?";
+            pos += snprintf(buf + pos, size - pos, "%s\"%s\"",
+                            i > start ? ", " : "", name);
+            if (i == sel)
+                pos += snprintf(buf + pos, size - pos, " [SELECTED]");
+        }
+        pos += snprintf(buf + pos, size - pos, "\n");
+    }
+
+    return pos;
+}
+
+void dash_scroller_snapshot_register(void)
+{
+    dash_snapshot_register(scroller_snapshot);
+}

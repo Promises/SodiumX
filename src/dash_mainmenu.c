@@ -467,3 +467,27 @@ bool dash_mainmenu_is_open(void)
 {
     return start_menu_open;
 }
+
+/* ── Snapshot for remote status ── */
+static int mainmenu_snapshot(char *buf, int size)
+{
+    if (!start_menu_open) return 0;
+
+    int pos = 0;
+    pos += snprintf(buf + pos, size - pos, "[menu]\n");
+    pos += snprintf(buf + pos, size - pos, "title=\"Main Menu\"\n");
+    pos += snprintf(buf + pos, size - pos, "items=");
+    for (int i = 0; i < (int)MENU_ITEM_COUNT && pos < size - 1; i++) {
+        pos += snprintf(buf + pos, size - pos, "%s\"%s\"",
+                        i > 0 ? ", " : "", menu_items[i].label);
+        if (i == menu_selected)
+            pos += snprintf(buf + pos, size - pos, " [SELECTED]");
+    }
+    pos += snprintf(buf + pos, size - pos, "\n");
+    return pos;
+}
+
+void dash_mainmenu_snapshot_register(void)
+{
+    dash_snapshot_register(mainmenu_snapshot);
+}

@@ -897,3 +897,22 @@ static void ctx_open_backup_browser(void)
 
     dash_panel_open(&panel_cfg);
 }
+
+/* ── Snapshot for remote status ── */
+static int context_menu_snapshot(char *buf, int size)
+{
+    if (!ctx_menu_open) return 0;
+
+    int pos = 0;
+    pos += snprintf(buf + pos, size - pos, "[context_menu]\n");
+    pos += snprintf(buf + pos, size - pos, "game=\"%s\"\n", ctx_title);
+    pos += snprintf(buf + pos, size - pos, "title_id=\"%s\"\n",
+                    ctx_title_id[0] ? ctx_title_id : "");
+    pos += snprintf(buf + pos, size - pos, "items=\"Manage Save Backups\" [SELECTED]\n");
+    return pos;
+}
+
+void dash_context_menu_snapshot_register(void)
+{
+    dash_snapshot_register(context_menu_snapshot);
+}

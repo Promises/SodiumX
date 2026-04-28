@@ -191,31 +191,28 @@ static void handle_screenshot(SOCKET_TYPE fd)
     fclose(f);
 }
 
-/* ── Status query ── */
-extern parse_handle_t *parsers[];
-extern int dash_scroller_get_page_current(void);
-extern int dash_scroller_get_selected_index(void);
-extern int dash_scroller_get_item_count(void);
-extern const char *dash_scroller_get_focused_title(void);
-extern bool dash_mainmenu_is_open(void);
+/* ── Snapshot registry ── */
+static dash_snapshot_fn snapshot_fns[DASH_SNAPSHOT_MAX];
+static int snapshot_fn_count = 0;
 
+void dash_snapshot_register(dash_snapshot_fn fn)
+{
+    if (snapshot_fn_count < DASH_SNAPSHOT_MAX)
+        snapshot_fns[snapshot_fn_count++] = fn;
+}
+
+/* ── Status query ── */
 static void handle_status(SOCKET_TYPE fd)
 {
-    char buf[512];
-    int tab = dash_get_tab();
-    int page = dash_scroller_get_page_current();
-    int sel = dash_scroller_get_selected_index();
-    int total = dash_scroller_get_item_count();
-    const char *page_name = dash_scroller_get_title(page);
-    const char *focused = dash_scroller_get_focused_title();
-    bool menu = dash_mainmenu_is_open();
+    char buf[2048];
+    int pos = 0;
+    pos += snprintf(buf + pos, sizeof(buf) - pos, "OK\n");
 
-    snprintf(buf, sizeof(buf),
-             "OK tab=%d page=%d/%s sel=%d/%d title=\"%s\" menu=%s\n",
-             tab, page, page_name ? page_name : "?",
-             sel, total,
-             focused ? focused : "",
-             menu ? "open" : "closed");
+    for (int i = 0; i < snapshot_fn_count; i++) {
+        int wrote = snapshot_fns[i](buf + pos, (int)(sizeof(buf) - pos));
+        if (wrote > 0) pos += wrote;
+    }
+
     send_str(fd, buf);
 }
 

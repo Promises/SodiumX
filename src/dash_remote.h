@@ -8,7 +8,7 @@
 //   → screenshot         Save BMP and send binary: "OK <size>\n<raw bmp bytes>"
 //   → log on             Start streaming logs to this client
 //   → log off            Stop streaming logs
-//   → status             Query state: "OK tab=N page=NAME sel=N/N\n"
+//   → status             Query structured UI snapshot (see dash_snapshot below)
 //   → quit               Shutdown the app
 //   ← OK ...             Success response
 //   ← ERR ...            Error response
@@ -20,6 +20,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <stdbool.h>
 
 #ifndef DASH_REMOTE_PORT
 #define DASH_REMOTE_PORT 9876
@@ -40,6 +42,20 @@ void dash_remote_init_early(void); /* Retries bind until network ready — for d
 void dash_remote_deinit(void);
 void dash_remote_log(const char *fmt, ...);
 bool dash_remote_has_log_client(void);
+
+/* ── UI Snapshot system ──
+ * Each UI module (menu, settings, scroller, etc.) registers a snapshot
+ * callback. When the "status" command is received, all registered callbacks
+ * are invoked to build a structured text description of the current screen.
+ *
+ * Callback should append to buf (respecting remaining size) and return the
+ * number of chars written. Only called when the module's UI is active —
+ * the callback itself decides whether to output anything.
+ */
+typedef int (*dash_snapshot_fn)(char *buf, int size);
+
+#define DASH_SNAPSHOT_MAX 8
+void dash_snapshot_register(dash_snapshot_fn fn);
 
 #ifdef __cplusplus
 }
