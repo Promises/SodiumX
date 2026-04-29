@@ -237,21 +237,13 @@ void dash_styles_init(lv_color_t theme_colour)
     lv_style_set_border_opa(&rail_tile_style, 51);       /* ~20% — visible border */
     lv_style_set_pad_all(&rail_tile_style, 0);
     lv_style_set_clip_corner(&rail_tile_style, true);
-    lv_style_set_shadow_width(&rail_tile_style, 20);
-    lv_style_set_shadow_opa(&rail_tile_style, 102);      /* 40% */
-    lv_style_set_shadow_ofs_y(&rail_tile_style, 10);
-    lv_style_set_shadow_color(&rail_tile_style, lv_color_black());
+    /* Shadows are now pre-rendered bitmaps — see dash_scroller.c shadow_assemble() */
 
-    /* Focused tile: scale 1.05, full opa, accent border 3px, accent glow shadow */
+    /* Focused tile: accent border 3px */
     lv_style_init(&rail_tile_focused_style);
     lv_style_set_border_width(&rail_tile_focused_style, 3);
     lv_style_set_border_color(&rail_tile_focused_style, dash_accent_color);
     lv_style_set_border_opa(&rail_tile_focused_style, LV_OPA_COVER);
-    lv_style_set_shadow_width(&rail_tile_focused_style, 60);
-    lv_style_set_shadow_spread(&rail_tile_focused_style, 0);
-    lv_style_set_shadow_ofs_y(&rail_tile_focused_style, 30);
-    lv_style_set_shadow_color(&rail_tile_focused_style, lv_color_black());
-    lv_style_set_shadow_opa(&rail_tile_focused_style, 140); /* 55% */
     lv_style_set_outline_width(&rail_tile_focused_style, 0);
 
     /* ── Controls bar (bottom 52px) ── */

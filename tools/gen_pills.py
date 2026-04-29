@@ -499,4 +499,141 @@ kb_back = render_roundrect(kb_back_w, kb_pill_h, 6, 1,
     EF_BG_DIM, 220, EF_FG_MUTED, 200)
 emit_array("pill_kb_back", kb_back, kb_back_w, kb_pill_h)
 
+# ── Tile shadows (9-slice pre-rendered for Xbox GPU compat) ──
+#
+# Each shadow is sliced into 9 patches: 4 corners, 4 edges, 1 center.
+# Corners: (pad+radius) × (pad+radius) each — contain the full curve + blur
+# Edges: 1px wide strips that tile to fill straight sections
+# Center: 1×1 pixel at full shadow opacity
+#
+# The full shadow image would be (tile_w + 2*pad) × (tile_h + 2*pad + ofs_y),
+# but 9-slicing reduces it to ~4 small corner bitmaps + strips.
+
+def sdf_roundrect(px, py, hw, hh, r):
+    """Signed distance from point to a rounded rectangle centered at origin."""
+    dx = abs(px) - (hw - r)
+    dy = abs(py) - (hh - r)
+    dx_c = max(0, dx)
+    dy_c = max(0, dy)
+    outside = math.sqrt(dx_c * dx_c + dy_c * dy_c) - r
+    inside = min(max(dx, dy), 0)
+    return outside + inside
+
+def shadow_alpha(dist, blur, opa):
+    """Compute shadow alpha for a given SDF distance."""
+    if dist <= 0:
+        t = 1.0
+    elif dist >= blur:
+        t = 0.0
+    else:
+        t = 1.0 - dist / blur
+    t = t * t  # quadratic falloff
+    return int(t * opa)
+
+def render_shadow_full(tile_w, tile_h, radius, pad, ofs_x, ofs_y, blur, color, opa, inset=0):
+    """Render the full shadow image — used to extract 9-slice pieces.
+    inset shrinks the shadow's inner rect so the opaque center is hidden behind the tile."""
+    img_w = tile_w + 2 * pad + abs(ofs_x)
+    img_h = tile_h + 2 * pad + abs(ofs_y)
+    pixels = bytearray(img_w * img_h * 4)
+
+    cx = pad + tile_w / 2.0 + max(ofs_x, 0)
+    cy = pad + tile_h / 2.0 + max(ofs_y, 0)
+    hw = tile_w / 2.0 - inset
+    hh = tile_h / 2.0 - inset
+
+    for y in range(img_h):
+        for x in range(img_w):
+            dist = sdf_roundrect(x - cx, y - cy, hw, hh, radius)
+            a = shadow_alpha(dist, blur, opa)
+            if a > 0:
+                off = (y * img_w + x) * 4
+                pixels[off:off + 4] = bgra(color[0], color[1], color[2], a)
+
+    return pixels, img_w, img_h
+
+def extract_9slice(pixels, img_w, img_h, pad, radius, ofs_x, ofs_y):
+    """Extract 9-slice pieces from a full shadow image.
+    Returns dict of (bytes, w, h) for each piece."""
+    # Each corner must be large enough to cover the blur gradient in both
+    # directions, including the offset. Use max of both offsets for all corners
+    # to avoid seams at the transition.
+    cl = pad + radius + abs(ofs_x)  # left corner width
+    cr = pad + radius + abs(ofs_x)  # right corner width
+    ct = pad + radius + abs(ofs_y)  # top corner height
+    cb = pad + radius + abs(ofs_y)  # bottom corner height
+
+    def extract_rect(x0, y0, w, h):
+        out = bytearray(w * h * 4)
+        for y in range(h):
+            src_off = ((y0 + y) * img_w + x0) * 4
+            dst_off = y * w * 4
+            out[dst_off:dst_off + w * 4] = pixels[src_off:src_off + w * 4]
+        return bytes(out)
+
+    pieces = {}
+    # 4 corners
+    pieces['tl'] = (extract_rect(0, 0, cl, ct), cl, ct)
+    pieces['tr'] = (extract_rect(img_w - cr, 0, cr, ct), cr, ct)
+    pieces['bl'] = (extract_rect(0, img_h - cb, cl, cb), cl, cb)
+    pieces['br'] = (extract_rect(img_w - cr, img_h - cb, cr, cb), cr, cb)
+
+    # 4 edges (1px wide strips from the middle of each edge)
+    mid_x = img_w // 2
+
+    pieces['t'] = (extract_rect(mid_x, 0, 1, ct), 1, ct)
+    pieces['b'] = (extract_rect(mid_x, img_h - cb, 1, cb), 1, cb)
+    pieces['l'] = (extract_rect(0, img_h // 2, cl, 1), cl, 1)
+    pieces['r'] = (extract_rect(img_w - cr, img_h // 2, cr, 1), cr, 1)
+
+    # Center: 1x1 from the middle
+    pieces['c'] = (extract_rect(mid_x, img_h // 2, 1, 1), 1, 1)
+
+    return pieces, cl, cr, ct, cb
+
+def emit_shadow_9slice(prefix, tile_w, tile_h, radius, pad, ofs_x, ofs_y, blur, color, opa, inset=0):
+    """Generate and emit 9-slice shadow pieces."""
+    full, img_w, img_h = render_shadow_full(tile_w, tile_h, radius, pad, ofs_x, ofs_y, blur, color, opa, inset)
+    result = extract_9slice(full, img_w, img_h, pad, radius, ofs_x, ofs_y)
+    pieces, cl, cr, ct, cb = result
+
+    for part_name, (data, w, h) in pieces.items():
+        emit_array(f"{prefix}_{part_name}", data, w, h)
+
+    print(f"static const shadow_9slice_t {prefix} = {{")
+    print(f"    .tl = &{prefix}_tl, .tr = &{prefix}_tr,")
+    print(f"    .bl = &{prefix}_bl, .br = &{prefix}_br,")
+    print(f"    .t = &{prefix}_t, .b = &{prefix}_b,")
+    print(f"    .l = &{prefix}_l, .r = &{prefix}_r,")
+    print(f"    .c = &{prefix}_c,")
+    print(f"    .corner_l = {cl}, .corner_r = {cr},")
+    print(f"    .corner_top_h = {ct}, .corner_bot_h = {cb},")
+    print(f"    .pad = {pad}, .ofs_x = {ofs_x}, .ofs_y = {ofs_y},")
+    print(f"}};")
+    print()
+
+TILE_W, TILE_H, TILE_R = 230, 320, 14
+
+print("typedef struct {")
+print("    const lv_img_dsc_t *tl, *tr, *bl, *br;")
+print("    const lv_img_dsc_t *t, *b, *l, *r, *c;")
+print("    int corner_l, corner_r, corner_top_h, corner_bot_h;")
+print("    int pad, ofs_x, ofs_y;")
+print("} shadow_9slice_t;")
+print()
+
+# Both shadows use the same pad/ofs_y so assembled images are identical size,
+# enabling seamless source swaps during animation.
+SHADOW_PAD = 28
+SHADOW_OFS_Y = 0
+
+# Unfocused: black shadow, offset down-right for natural drop shadow
+# inset=6 shrinks the opaque center so it's fully hidden behind the tile
+emit_shadow_9slice("shadow_unfocused", TILE_W, TILE_H, TILE_R,
+    pad=SHADOW_PAD, ofs_x=8, ofs_y=10, blur=18, color=(0, 0, 0), opa=102, inset=12)
+
+# Focused: accent-green shadow, same offset, larger blur
+emit_shadow_9slice("shadow_focused", TILE_W, TILE_H, TILE_R,
+    pad=SHADOW_PAD, ofs_x=8, ofs_y=10, blur=28, color=EF_GREEN, opa=90, inset=12)
+
 print("/* End of generated pill data */")

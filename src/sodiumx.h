@@ -199,6 +199,7 @@ typedef struct
     char meta_subtitle[128]; /* cached "Developer · Year · Genre" — filled on first focus */
     bool meta_cached;
     jpg_info_t *jpg_info;
+    lv_obj_t *shadow_img;
 } title_t;
 
 #ifndef NANO_DEBUG_LEVEL

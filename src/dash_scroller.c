@@ -15,6 +15,7 @@ static lv_obj_t *rail_wrap;      /* rail viewport (clipped) */
 static lv_obj_t *rail;           /* horizontal flex container, translated */
 static int page_current;
 static int selected_index;       /* index within current page (1-based, 0=null) */
+static bool suppress_focus_anim; /* skip animated rail_update during page setup */
 static lv_lru_t *thumbnail_cache;
 static size_t thumbnail_cache_size = (10 * 1024 * 1024);
 
@@ -24,6 +25,129 @@ static lv_obj_t *dots_container;
 
 /* Empty page label — created once, shown/hidden as needed */
 static lv_obj_t *empty_page_label;
+
+/* Pre-rendered tile shadows — assembled at runtime from 9-slice pieces */
+static lv_img_dsc_t shadow_unfocused_img;
+static lv_img_dsc_t shadow_focused_img;
+static bool shadows_ready;
+
+static void shadow_assemble(lv_img_dsc_t *out, const shadow_9slice_t *s,
+                            int tile_w, int tile_h, uint8_t id)
+{
+    int abs_ox = s->ofs_x < 0 ? -s->ofs_x : s->ofs_x;
+    int abs_oy = s->ofs_y < 0 ? -s->ofs_y : s->ofs_y;
+    int img_w = tile_w + 2 * s->pad + abs_ox;
+    int img_h = tile_h + 2 * s->pad + abs_oy;
+
+    size_t buf_size = img_w * img_h * 4;
+    uint8_t *buf = lv_mem_alloc(buf_size);
+    if (!buf) return;
+    lv_memset(buf, 0, buf_size);
+
+    int cl = s->corner_l;
+    int cr = s->corner_r;
+    int ct = s->corner_top_h;
+    int cb = s->corner_bot_h;
+    int mid_w = img_w - cl - cr;
+    int mid_h = img_h - ct - cb;
+
+    #define BLIT(src_dsc, dx, dy) do { \
+        const uint8_t *sd = (src_dsc)->data; \
+        int sw = (src_dsc)->header.w, sh = (src_dsc)->header.h; \
+        for (int _y = 0; _y < sh; _y++) { \
+            int dst_row = (dy) + _y; \
+            if (dst_row < 0 || dst_row >= img_h) continue; \
+            for (int _x = 0; _x < sw; _x++) { \
+                int dst_col = (dx) + _x; \
+                if (dst_col < 0 || dst_col >= img_w) continue; \
+                int si = (_y * sw + _x) * 4; \
+                int di = (dst_row * img_w + dst_col) * 4; \
+                buf[di] = sd[si]; buf[di+1] = sd[si+1]; \
+                buf[di+2] = sd[si+2]; buf[di+3] = sd[si+3]; \
+            } \
+        } \
+    } while(0)
+
+    #define TILE_H_STRIP(src_dsc, dx, dy, w) do { \
+        const uint8_t *sd = (src_dsc)->data; \
+        int sh = (src_dsc)->header.h; \
+        for (int _y = 0; _y < sh; _y++) { \
+            int dst_row = (dy) + _y; \
+            if (dst_row < 0 || dst_row >= img_h) continue; \
+            int si = _y * 4; \
+            for (int _x = 0; _x < (w); _x++) { \
+                int di = (dst_row * img_w + (dx) + _x) * 4; \
+                buf[di] = sd[si]; buf[di+1] = sd[si+1]; \
+                buf[di+2] = sd[si+2]; buf[di+3] = sd[si+3]; \
+            } \
+        } \
+    } while(0)
+
+    #define TILE_V_STRIP(src_dsc, dx, dy, h) do { \
+        const uint8_t *sd = (src_dsc)->data; \
+        int sw = (src_dsc)->header.w; \
+        for (int _y = 0; _y < (h); _y++) { \
+            int dst_row = (dy) + _y; \
+            if (dst_row < 0 || dst_row >= img_h) continue; \
+            for (int _x = 0; _x < sw; _x++) { \
+                int di = (dst_row * img_w + (dx) + _x) * 4; \
+                buf[di] = sd[_x * 4]; buf[di+1] = sd[_x * 4 + 1]; \
+                buf[di+2] = sd[_x * 4 + 2]; buf[di+3] = sd[_x * 4 + 3]; \
+            } \
+        } \
+    } while(0)
+
+    BLIT(s->tl, 0, 0);
+    BLIT(s->tr, img_w - cr, 0);
+    BLIT(s->bl, 0, img_h - cb);
+    BLIT(s->br, img_w - cr, img_h - cb);
+
+    if (mid_w > 0) {
+        TILE_H_STRIP(s->t, cl, 0, mid_w);
+        TILE_H_STRIP(s->b, cl, img_h - cb, mid_w);
+    }
+    if (mid_h > 0) {
+        TILE_V_STRIP(s->l, 0, ct, mid_h);
+        TILE_V_STRIP(s->r, img_w - cr, ct, mid_h);
+    }
+
+    if (mid_w > 0 && mid_h > 0) {
+        const uint8_t *cd = s->c->data;
+        for (int _y = 0; _y < mid_h; _y++) {
+            int dst_row = ct + _y;
+            for (int _x = 0; _x < mid_w; _x++) {
+                int di = (dst_row * img_w + cl + _x) * 4;
+                buf[di] = cd[0]; buf[di+1] = cd[1];
+                buf[di+2] = cd[2]; buf[di+3] = cd[3];
+            }
+        }
+    }
+
+    #undef BLIT
+    #undef TILE_H_STRIP
+    #undef TILE_V_STRIP
+
+    /* XGU texture cache fix: the cache hashes the first 64 bytes of image data.
+     * All-zero (transparent) data produces key=0 which breaks caching.
+     * Write unique values per shadow using id to differentiate. */
+    for (int i = 0; i < 16 && i < img_w; i++)
+        buf[i * 4 + 3] = (uint8_t)(i + 1 + id * 17);  /* unique alpha per shadow */
+
+    out->header.always_zero = 0;
+    out->header.w = img_w;
+    out->header.h = img_h;
+    out->header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+    out->data_size = buf_size;
+    out->data = buf;
+}
+
+static void shadows_init(void)
+{
+    if (shadows_ready) return;
+    shadows_ready = true;
+    shadow_assemble(&shadow_unfocused_img, &shadow_unfocused, DASH_TILE_W, DASH_TILE_H, 0);
+    shadow_assemble(&shadow_focused_img, &shadow_focused, DASH_TILE_W, DASH_TILE_H, 1);
+}
 
 /* Zoom values (256 = 1.0x) */
 /* Tile size scaling factors (percent of DASH_TILE_W/H) */
@@ -214,6 +338,11 @@ static void tile_apply_state(lv_obj_t *tile, int index, int sel, bool animate)
     }
     else
     {
+        /* Cancel in-flight animations so they don't overwrite snapped values */
+        lv_anim_del(tile, NULL);
+        if (td && td->jpg_info && td->jpg_info->canvas)
+            lv_anim_del(td->jpg_info->canvas, NULL);
+
         lv_obj_set_pos(tile, target_x, target_y);
         lv_obj_set_size(tile, target_w, target_h);
         lv_obj_set_style_opa(tile, opa, LV_PART_MAIN);
@@ -223,27 +352,91 @@ static void tile_apply_state(lv_obj_t *tile, int index, int sel, bool animate)
         }
     }
 
-    /* Focus ring — set bg color to border color so the stencil inset
-     * reveals the border as the tile background at the edges. */
-    if (delta == 0)
+    /* Focus ring — only update when the tile's focused state changes.
+     * border_width differs between selected (3) and unselected (1),
+     * so we use it to detect whether styles need updating. */
+    bool is_focused = (delta == 0);
+    bool was_focused = (lv_obj_get_style_border_width(tile, LV_PART_MAIN) == 3);
+    if (is_focused != was_focused)
     {
-        lv_obj_set_style_bg_color(tile, dash_accent_color, LV_PART_MAIN);
-        lv_obj_set_style_border_width(tile, 3, LV_PART_MAIN);
-        lv_obj_set_style_border_color(tile, dash_accent_color, LV_PART_MAIN);
-        lv_obj_set_style_border_opa(tile, LV_OPA_COVER, LV_PART_MAIN);
-        lv_obj_set_style_shadow_width(tile, 36, LV_PART_MAIN);
-        lv_obj_set_style_shadow_color(tile, dash_accent_color, LV_PART_MAIN);
-        lv_obj_set_style_shadow_opa(tile, 90, LV_PART_MAIN);
+        if (is_focused)
+        {
+            lv_obj_set_style_bg_color(tile, dash_accent_color, LV_PART_MAIN);
+            lv_obj_set_style_border_width(tile, 3, LV_PART_MAIN);
+            lv_obj_set_style_border_color(tile, dash_accent_color, LV_PART_MAIN);
+            lv_obj_set_style_border_opa(tile, LV_OPA_COVER, LV_PART_MAIN);
+        }
+        else
+        {
+            lv_obj_set_style_bg_color(tile, EF_BG2, LV_PART_MAIN);
+            lv_obj_set_style_border_width(tile, 1, LV_PART_MAIN);
+            lv_obj_set_style_border_color(tile, EF_FG, LV_PART_MAIN);
+            lv_obj_set_style_border_opa(tile, 51, LV_PART_MAIN);
+        }
     }
-    else
+
+    /* Position and scale pre-rendered shadow behind tile.
+     * lv_img zooms from center pivot, so we position center-on-center. */
+    if (td && td->shadow_img)
     {
-        lv_obj_set_style_bg_color(tile, EF_BG2, LV_PART_MAIN);
-        lv_obj_set_style_border_width(tile, 1, LV_PART_MAIN);
-        lv_obj_set_style_border_color(tile, EF_FG, LV_PART_MAIN);
-        lv_obj_set_style_border_opa(tile, 51, LV_PART_MAIN);
-        lv_obj_set_style_shadow_width(tile, 20, LV_PART_MAIN);
-        lv_obj_set_style_shadow_color(tile, lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_shadow_opa(tile, 102, LV_PART_MAIN);
+        const lv_img_dsc_t *src = is_focused ? &shadow_focused_img : &shadow_unfocused_img;
+        int img_w = src->header.w;
+        int img_h = src->header.h;
+        uint16_t shd_zoom = (uint16_t)(size_pct * 256 / 100);
+
+        lv_coord_t tile_cx = target_x + target_w / 2;
+        lv_coord_t tile_cy = target_y + target_h / 2;
+        lv_coord_t shd_x = tile_cx - img_w / 2;
+        lv_coord_t shd_y = tile_cy - img_h / 2;
+
+        lv_img_set_src(td->shadow_img, src);
+
+        if (!is_focused) {
+            lv_obj_add_flag(td->shadow_img, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_clear_flag(td->shadow_img, LV_OBJ_FLAG_HIDDEN);
+        }
+
+        if (animate)
+        {
+            lv_anim_t sx;
+            lv_anim_init(&sx);
+            lv_anim_set_var(&sx, td->shadow_img);
+            lv_anim_set_values(&sx, lv_obj_get_x(td->shadow_img), shd_x);
+            lv_anim_set_time(&sx, RAIL_ANIM_MS);
+            lv_anim_set_exec_cb(&sx, _anim_tile_x_cb);
+            lv_anim_set_path_cb(&sx, dash_anim_path_ease_rail);
+            lv_anim_start(&sx);
+
+            lv_anim_t sy;
+            lv_anim_init(&sy);
+            lv_anim_set_var(&sy, td->shadow_img);
+            lv_anim_set_values(&sy, lv_obj_get_y(td->shadow_img), shd_y);
+            lv_anim_set_time(&sy, RAIL_ANIM_MS);
+            lv_anim_set_exec_cb(&sy, _anim_tile_y_cb);
+            lv_anim_set_path_cb(&sy, dash_anim_path_ease_rail);
+            lv_anim_start(&sy);
+
+            lv_anim_t sz;
+            lv_anim_init(&sz);
+            lv_anim_set_var(&sz, td->shadow_img);
+            lv_anim_set_values(&sz, lv_img_get_zoom(td->shadow_img), shd_zoom);
+            lv_anim_set_time(&sz, RAIL_ANIM_MS);
+            lv_anim_set_exec_cb(&sz, _anim_art_zoom_cb);
+            lv_anim_set_path_cb(&sz, dash_anim_path_ease_rail);
+            lv_anim_start(&sz);
+
+            dash_anim_opa(td->shadow_img,
+                          lv_obj_get_style_opa(td->shadow_img, LV_PART_MAIN),
+                          opa, RAIL_ANIM_MS);
+        }
+        else
+        {
+            lv_anim_del(td->shadow_img, NULL);
+            lv_obj_set_pos(td->shadow_img, shd_x, shd_y);
+            lv_img_set_zoom(td->shadow_img, shd_zoom);
+            lv_obj_set_style_opa(td->shadow_img, opa, LV_PART_MAIN);
+        }
     }
 }
 
@@ -292,6 +485,8 @@ static void jpg_decompression_complete_cb(void *img, void *mem, int w, int h, vo
     lv_obj_mark_layout_as_dirty(t->jpg_info->canvas);
 
     lv_lru_set(thumbnail_cache, &image_container, sizeof(lv_obj_t *), t, w * h * JPEG_BPP);
+    dash_perf_set_thumb_cache(0, /* count not tracked by lv_lru */
+                              thumbnail_cache->total_memory - thumbnail_cache->free_memory);
     lvgl_removelock();
 }
 
@@ -406,30 +601,43 @@ static void ensure_focus_badge(lv_obj_t *tile)
     }
 }
 
+static int prev_dot_sel = -1;
+
 static void update_indicator_dots(int sel, int total)
 {
     if (!dots_container) return;
 
+    int dot_total = (total > MAX_DOTS) ? MAX_DOTS : total;
+
+    /* Clamp sel to dot range — when more items than dots, the bar
+     * maps proportionally across the dot strip. */
+    int dot_sel = (total > MAX_DOTS) ? (sel * (MAX_DOTS - 1) / (total - 1)) : sel;
+    if (dot_sel >= dot_total) dot_sel = dot_total - 1;
+    if (dot_sel < 0) dot_sel = 0;
+
     /* Rebuild dots if count changed */
     int existing = lv_obj_get_child_cnt(dots_container);
-    if (existing != total)
+    if (existing != dot_total)
     {
         lv_obj_clean(dots_container);
-        for (int i = 0; i < total && i < MAX_DOTS; i++)
+        for (int i = 0; i < dot_total; i++)
         {
             lv_obj_t *dot = lv_img_create(dots_container);
-            lv_img_set_src(dot, &pill_dot_inactive);
+            lv_img_set_src(dot, (i == dot_sel) ? &pill_dot_bar : &pill_dot_inactive);
         }
+        prev_dot_sel = dot_sel;
+        return;
     }
 
-    /* Update each dot — swap image source for selected */
-    for (int i = 0; i < (int)lv_obj_get_child_cnt(dots_container); i++)
+    /* Only update the old and new dot — O(1) instead of O(n) */
+    if (dot_sel != prev_dot_sel)
     {
-        lv_obj_t *dot = lv_obj_get_child(dots_container, i);
-        if (i == sel)
-            lv_img_set_src(dot, &pill_dot_bar);
-        else
-            lv_img_set_src(dot, &pill_dot_inactive);
+        int dot_cnt = (int)lv_obj_get_child_cnt(dots_container);
+        if (prev_dot_sel >= 0 && prev_dot_sel < dot_cnt)
+            lv_img_set_src(lv_obj_get_child(dots_container, prev_dot_sel), &pill_dot_inactive);
+        if (dot_sel >= 0 && dot_sel < dot_cnt)
+            lv_img_set_src(lv_obj_get_child(dots_container, dot_sel), &pill_dot_bar);
+        prev_dot_sel = dot_sel;
     }
 }
 
@@ -447,11 +655,15 @@ static void rail_update_focus(bool animate)
 
     dash_printf(LEVEL_TRACE, "[RAIL] update_focus: sel=%d/%d\n", selected_index, last);
 
-    /* Position each tile into its slot */
+    /* Position each tile into its slot.
+     * ±4: animate smoothly (covers all visible tiles on screen)
+     * rest: snap position/size instantly (no animation overhead) */
     for (int i = 1; i < child_cnt; i++)
     {
+        int delta = (i > selected_index) ? (i - selected_index) : (selected_index - i);
+        bool tile_animate = animate && (delta <= 4);
         lv_obj_t *tile = lv_obj_get_child(rail, i);
-        tile_apply_state(tile, i, selected_index, animate);
+        tile_apply_state(tile, i, selected_index, tile_animate);
     }
 
     /* Update meta, badge, backdrop */
@@ -460,15 +672,18 @@ static void rail_update_focus(bool animate)
     {
         title_t *t = focus_tile->user_data;
 
-        /* Query DB for developer/year */
-        meta_sub_buf[0] = '\0';
-        if (t->db_id >= 0)
+        /* Fetch developer/year from DB — cached after first lookup */
+        if (!t->meta_cached && t->db_id >= 0)
         {
+            meta_sub_buf[0] = '\0';
             char cmd[SQL_MAX_COMMAND_LEN];
             lv_snprintf(cmd, sizeof(cmd), SQL_TITLE_GET_BY_ID, t->db_id);
             db_command_with_callback(cmd, meta_info_callback, NULL);
+            strncpy(t->meta_subtitle, meta_sub_buf, sizeof(t->meta_subtitle) - 1);
+            t->meta_subtitle[sizeof(t->meta_subtitle) - 1] = '\0';
+            t->meta_cached = true;
         }
-        dash_update_meta(t->title, meta_sub_buf);
+        dash_update_meta(t->title, t->meta_subtitle);
         dash_update_hero_counter(selected_index - 1, child_cnt - 1);
 
         /* "NOW FOCUSED" badge disabled */
@@ -496,18 +711,17 @@ static void item_selection_callback(lv_event_t *event)
 
     if (e == LV_EVENT_FOCUSED)
     {
-        /* Find this item's index in the rail */
-        lv_obj_t *parent = lv_obj_get_parent(item_container);
-        int cnt = lv_obj_get_child_cnt(parent);
-        for (int i = 1; i < cnt; i++)
+        /* O(1) index lookup via cached rail_index */
+        selected_index = t->rail_index;
+        if (suppress_focus_anim)
         {
-            if (lv_obj_get_child(parent, i) == item_container)
-            {
-                selected_index = i;
-                break;
-            }
+            suppress_focus_anim = false;
+            rail_update_focus(true);
         }
-        rail_update_focus(true);
+        else
+        {
+            rail_update_focus(true);
+        }
     }
     else if (e == LV_EVENT_KEY)
     {
@@ -708,9 +922,16 @@ static void item_scan_add(lv_obj_t *scroller, item_strings_callback_t *item_cb)
         if (t == NULL) { item = item->next; continue; }
         t->jpg_info = NULL;
         t->title[0] = '\0';
+        t->meta_subtitle[0] = '\0';
+        t->meta_cached = false;
         t->db_id = atoi(item->id);
+        t->rail_index = add_count + 1;  /* 1-based: child[0] is spacer */
+        t->shadow_img = NULL;
 
         lvgl_getlock();
+        shadows_init();
+
+        t->shadow_img = NULL; /* created after tile below */
 
         /* Create tile container */
         lv_obj_t *tile = lv_obj_create(scroller);
@@ -773,6 +994,16 @@ static void item_scan_add(lv_obj_t *scroller, item_strings_callback_t *item_cb)
         lv_obj_add_event_cb(tile, item_selection_callback, LV_EVENT_KEY, NULL);
         lv_obj_add_event_cb(tile, item_selection_callback, LV_EVENT_FOCUSED, NULL);
         lv_obj_add_event_cb(tile, item_deletion_callback, LV_EVENT_DELETE, NULL);
+
+        /* Create shadow (hidden until tile_apply_state shows it for focused tile) */
+        {
+            lv_obj_t *shd = lv_img_create(rail_wrap);
+            lv_img_set_src(shd, &shadow_unfocused_img);
+            lv_obj_clear_flag(shd, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(shd, LV_OBJ_FLAG_IGNORE_LAYOUT | LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_to_index(shd, 0);
+            t->shadow_img = shd;
+        }
 
         strncpy(t->title, item->title, sizeof(t->title) - 1);
         add_count++;
@@ -891,6 +1122,7 @@ static int db_scan_thread_f(void *param)
         selected_index = 1;
         lv_obj_t *first_tile = lv_obj_get_child(p->scroller, 1);
         dash_focus_set_final(lv_obj_get_child(p->scroller, 0));
+        suppress_focus_anim = true;
         dash_focus_change(first_tile);
         rail_update_focus(false);
     }
@@ -1016,6 +1248,7 @@ void dash_scroller_set_page()
 
     rail = parsers[page_current]->scroller;
     selected_index = LV_MAX(1, selected_index);
+    prev_dot_sel = -1;  /* force dot rebuild on page switch */
 
     int child_cnt = lv_obj_get_child_cnt(rail);
     dash_printf(LEVEL_TRACE, "[PAGE] rail=%p child_cnt=%d selected_index=%d page='%s'\n",
@@ -1045,17 +1278,31 @@ void dash_scroller_set_page()
             lv_obj_add_flag(empty_page_label, LV_OBJ_FLAG_HIDDEN);
     }
 
-    /* Show only the active page's scroller, hide others */
+    /* Show only the active page's scroller (and shadows), hide others */
     for (int i = 0; i < DASH_MAX_PAGES; i++)
     {
         if (parsers[i] == NULL) continue;
-        if (i == page_current)
-        {
-            lv_obj_clear_flag(parsers[i]->scroller, LV_OBJ_FLAG_HIDDEN);
-        }
+        lv_obj_t *sc = parsers[i]->scroller;
+        bool active = (i == page_current);
+
+        if (active)
+            lv_obj_clear_flag(sc, LV_OBJ_FLAG_HIDDEN);
         else
+            lv_obj_add_flag(sc, LV_OBJ_FLAG_HIDDEN);
+
+        /* Show/hide shadow images for this page's tiles */
+        int cnt = lv_obj_get_child_cnt(sc);
+        for (int j = 1; j < cnt; j++)
         {
-            lv_obj_add_flag(parsers[i]->scroller, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_t *tile = lv_obj_get_child(sc, j);
+            title_t *tt = tile ? tile->user_data : NULL;
+            if (tt && tt->shadow_img)
+            {
+                if (active)
+                    lv_obj_clear_flag(tt->shadow_img, LV_OBJ_FLAG_HIDDEN);
+                else
+                    lv_obj_add_flag(tt->shadow_img, LV_OBJ_FLAG_HIDDEN);
+            }
         }
     }
 
@@ -1068,6 +1315,9 @@ void dash_scroller_set_page()
         dash_focus_set_final(lv_obj_get_child(rail, 0));
         if (child_cnt > 1)
         {
+            /* Suppress the animated rail_update that LV_EVENT_FOCUSED triggers —
+             * tiles are already at correct positions from rail_update_focus(false) above. */
+            suppress_focus_anim = true;
             lv_obj_t *focus_item = lv_obj_get_child(rail, selected_index);
             dash_focus_change(focus_item);
         }
@@ -1200,6 +1450,28 @@ void dash_scroller_clear_empty_label(void)
         lv_obj_add_flag(empty_page_label, LV_OBJ_FLAG_HIDDEN);
 }
 
+void dash_scroller_restore_focus(void)
+{
+    /* Restore focus to the currently selected tile without resetting
+     * selection or re-snapping positions. Used when returning from
+     * tab nav to the same page. */
+    if (!rail) return;
+    int child_cnt = lv_obj_get_child_cnt(rail);
+    if (child_cnt <= 1) return;
+    /* selected_index may have been corrupted by LVGL focus cycling during
+     * tab nav — use the saved origin value instead. */
+    extern int tab_nav_origin_sel;
+    selected_index = LV_CLAMP(1, tab_nav_origin_sel, child_cnt - 1);
+    dash_printf(LEVEL_TRACE, "[RESTORE] origin_sel=%d selected_index=%d child_cnt=%d\n",
+                tab_nav_origin_sel, selected_index, child_cnt);
+
+    suppress_focus_anim = true;
+    dash_focus_set_final(lv_obj_get_child(rail, 0));
+    lv_obj_t *tile = lv_obj_get_child(rail, selected_index);
+    if (tile)
+        dash_focus_change(tile);
+}
+
 void dash_scroller_set_page_index(int index)
 {
     int page_count = dash_scroller_get_page_count();
@@ -1310,6 +1582,9 @@ void dash_scroller_resort_page(const char *page_title)
     for (int i = 1; i < child_cnt; i++)
     {
         scroller->spec_attr->children[i] = p->sorted_objs[i];
+        /* Update cached rail_index after reorder */
+        title_t *t = p->sorted_objs[i]->user_data;
+        t->rail_index = i;
     }
     lv_mem_free(p->sorted_objs);
     lv_mem_free(p);
