@@ -5,6 +5,7 @@
 #include "libs/xgu/xgu.h"
 #include "libs/xgu/xgux.h"
 #include "dash_remote.h"
+#include "dash_perf.h"
 
 extern uint32_t *p;
 
@@ -13,10 +14,27 @@ extern uint32_t *p;
 /* Number of segments per corner arc. More = smoother, but more GPU vertices. */
 #define CORNER_SEGMENTS 16
 
+/* Precomputed unit quarter-arc LUT: cos/sin for 0..90° in CORNER_SEGMENTS steps.
+ * Each corner indexes this with sign flips, eliminating all runtime trig. */
+static float corner_cos[CORNER_SEGMENTS + 1];
+static float corner_sin[CORNER_SEGMENTS + 1];
+static bool corner_lut_ready = false;
 
+static void corner_lut_init(void)
+{
+    if (corner_lut_ready) return;
+    for (int i = 0; i <= CORNER_SEGMENTS; i++)
+    {
+        float a = (3.14159f / 2.0f) * ((float)i / CORNER_SEGMENTS);
+        corner_cos[i] = cosf(a);
+        corner_sin[i] = sinf(a);
+    }
+    corner_lut_ready = true;
+}
 
 void draw_rect_simple(const lv_area_t *draw_area)
 {
+    dash_perf_inc_draw_calls();
     p = xgu_begin(p, XGU_TRIANGLE_STRIP);
     p = xgu_vertex4f(p, (float)draw_area->x1, (float)draw_area->y1, 1, 1);
     p = xgu_vertex4f(p, (float)draw_area->x2, (float)draw_area->y1, 1, 1);
@@ -30,6 +48,7 @@ void draw_rect_simple(const lv_area_t *draw_area)
 void xgu_draw_rect_rounded(const lv_area_t *area, lv_coord_t radius,
                            uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
+    dash_perf_inc_rounded_rects();
     a = xgu_correct_opa(a);
     float x1 = (float)area->x1;
     float y1 = (float)area->y1;
@@ -57,6 +76,8 @@ void xgu_draw_rect_rounded(const lv_area_t *area, lv_coord_t radius,
         return;
     }
 
+    corner_lut_init();
+
     /* Triangle fan from center */
     float cx = (x1 + x2) / 2;
     float cy = (y1 + y2) / 2;
@@ -67,37 +88,33 @@ void xgu_draw_rect_rounded(const lv_area_t *area, lv_coord_t radius,
     /* Center vertex */
     p = xgu_vertex4f(p, cx, cy, 1, 1);
 
-    /* Walk the perimeter: top-left corner, top edge, top-right corner, etc. */
+    /* Walk the perimeter using precomputed unit quarter-arc LUT.
+     * Each corner mirrors the LUT with sign flips — zero runtime trig. */
     int seg;
-    float angle;
 
-    /* Top-left corner (180° to 270°) */
+    /* Top-left corner (180° to 270°): -cos, -sin */
     for (seg = 0; seg <= CORNER_SEGMENTS; seg++)
     {
-        angle = 3.14159f + (3.14159f / 2.0f) * ((float)seg / CORNER_SEGMENTS);
-        p = xgu_vertex4f(p, x1 + rad + rad * cosf(angle),
-                              y1 + rad + rad * sinf(angle), 1, 1);
+        p = xgu_vertex4f(p, x1 + rad - rad * corner_cos[seg],
+                              y1 + rad - rad * corner_sin[seg], 1, 1);
     }
-    /* Top-right corner (270° to 360°) */
+    /* Top-right corner (270° to 360°): +sin, -cos */
     for (seg = 0; seg <= CORNER_SEGMENTS; seg++)
     {
-        angle = 3.14159f * 1.5f + (3.14159f / 2.0f) * ((float)seg / CORNER_SEGMENTS);
-        p = xgu_vertex4f(p, x2 - rad + rad * cosf(angle),
-                              y1 + rad + rad * sinf(angle), 1, 1);
+        p = xgu_vertex4f(p, x2 - rad + rad * corner_sin[seg],
+                              y1 + rad - rad * corner_cos[seg], 1, 1);
     }
-    /* Bottom-right corner (0° to 90°) */
+    /* Bottom-right corner (0° to 90°): +cos, +sin */
     for (seg = 0; seg <= CORNER_SEGMENTS; seg++)
     {
-        angle = (3.14159f / 2.0f) * ((float)seg / CORNER_SEGMENTS);
-        p = xgu_vertex4f(p, x2 - rad + rad * cosf(angle),
-                              y2 - rad + rad * sinf(angle), 1, 1);
+        p = xgu_vertex4f(p, x2 - rad + rad * corner_cos[seg],
+                              y2 - rad + rad * corner_sin[seg], 1, 1);
     }
-    /* Bottom-left corner (90° to 180°) */
+    /* Bottom-left corner (90° to 180°): -sin, +cos */
     for (seg = 0; seg <= CORNER_SEGMENTS; seg++)
     {
-        angle = 3.14159f / 2.0f + (3.14159f / 2.0f) * ((float)seg / CORNER_SEGMENTS);
-        p = xgu_vertex4f(p, x1 + rad + rad * cosf(angle),
-                              y2 - rad + rad * sinf(angle), 1, 1);
+        p = xgu_vertex4f(p, x1 + rad - rad * corner_sin[seg],
+                              y2 - rad + rad * corner_cos[seg], 1, 1);
     }
     /* Close the fan back to the first vertex */
     p = xgu_vertex4f(p, x1, y1 + rad, 1, 1);

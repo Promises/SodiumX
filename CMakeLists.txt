@@ -77,6 +77,7 @@ set(SOURCES
     src/dash_keyboard.c
     src/dash_panel.c
     src/dash_settings_new.c
+    src/dash_perf.c
     src/dash_backdrop.c
     src/dash_prerender.c
     src/img_sodiumx_glyph.c

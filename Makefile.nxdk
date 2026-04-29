@@ -32,6 +32,7 @@ SRCS += \
     $(CURDIR)/src/dash_keyboard.c \
     $(CURDIR)/src/dash_panel.c \
     $(CURDIR)/src/dash_settings_new.c \
+    $(CURDIR)/src/dash_perf.c \
     $(CURDIR)/src/dash_backdrop.c \
     $(CURDIR)/src/dash_prerender.c \
     $(CURDIR)/src/img_sodiumx_glyph.c \

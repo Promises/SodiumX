@@ -262,6 +262,7 @@ int main(int argc, char* argv[]) {
     }
 
     dash_printf(LEVEL_TRACE, "Creating dash\n");
+    dash_perf_init();
     dash_init();
 
     dash_printf(LEVEL_TRACE, "Enter dash busy loop\n");
@@ -274,24 +275,35 @@ int main(int argc, char* argv[]) {
 
     while (lv_get_quit() == LV_QUIT_NONE)
     {
-        int s,e,t;
-        s = SDL_GetTicks();
+        int frame_start = SDL_GetTicks();
+        dash_perf_frame_begin();
+
+        dash_perf_mark(PERF_TASK_HANDLER);
         lvgl_getlock();
         lv_task_handler();
         lvgl_removelock();
+        dash_perf_mark(PERF_TASK_HANDLER);
+
         #ifdef NXDK
+        dash_perf_mark(PERF_GPU_RENDER);
         lvgl_getlock();
         _lv_disp_refr_timer(NULL);
         lvgl_removelock();
-        pb_wait_for_vbl();
+        dash_perf_mark(PERF_GPU_RENDER);
+
+        dash_perf_mark(PERF_GPU_WAIT);
+        if (!dash_settings.disable_vsync)
+            pb_wait_for_vbl();
+        dash_perf_mark(PERF_GPU_WAIT);
         #else
-        e = SDL_GetTicks();
-        t = e - s;
-        if (t < LV_DISP_DEF_REFR_PERIOD)
         {
-            SDL_Delay(LV_DISP_DEF_REFR_PERIOD - t);
+            int elapsed = SDL_GetTicks() - frame_start;
+            if (elapsed < LV_DISP_DEF_REFR_PERIOD)
+                SDL_Delay(LV_DISP_DEF_REFR_PERIOD - elapsed);
         }
         #endif
+
+        dash_perf_frame_end();
     }
     dash_printf(LEVEL_TRACE, "Quitting dash with quit event %d\n", lv_get_quit());
     dash_backup_abort();

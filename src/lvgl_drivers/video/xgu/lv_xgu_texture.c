@@ -7,6 +7,7 @@
 #include "libs/xgu/xgu.h"
 #include "libs/xgu/xgux.h"
 #include "src/misc/lv_lru.h"
+#include "dash_perf.h"
 
 extern uint32_t *p;
 
@@ -101,6 +102,7 @@ static void bind_texture_ex(lv_draw_xgu_ctx_t *xgu_ctx, draw_cache_value_t *text
 {
     if (xgu_ctx->xgu_data->current_tex != tex_id)
     {
+        dash_perf_inc_texture_binds();
         p = xgu_set_texture_offset(p, 0, (void *)MmGetPhysicalAddress(texture->texture));
         p = xgu_set_texture_format(p, 0, 2, false, XGU_SOURCE_COLOR, 2, texture->format, 1, texture->tw >> 8, texture->th >> 8, 0);
         p = xgu_set_texture_address(p, 0, XGU_CLAMP_TO_EDGE, false, XGU_CLAMP_TO_EDGE, false, XGU_CLAMP_TO_EDGE, false, false);

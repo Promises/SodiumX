@@ -223,6 +223,95 @@ static void handle_status(SOCKET_TYPE fd)
     send_str(fd, buf);
 }
 
+/* ── Benchmark runner ── */
+static void handle_bench(remote_client_t *client, const char *args)
+{
+    int count = 20;
+    char type[32] = "scroll";
+
+    /* Parse: "scroll [N]" or "idle [N]" */
+    sscanf(args, "%31s %d", type, &count);
+    if (count < 1) count = 1;
+    if (count > 200) count = 200;
+
+    if (strcmp(type, "idle") == 0)
+    {
+        /* Measure idle frame times for N seconds */
+        char resp[128];
+        snprintf(resp, sizeof(resp), "OK bench_start idle %d\n", count);
+        send_str(client->fd, resp);
+
+        uint32_t start = SDL_GetTicks();
+        uint32_t duration_ms = (uint32_t)count * 1000;
+        uint32_t samples = 0;
+        uint32_t total_ms = 0;
+        uint32_t max_ms = 0;
+        uint32_t min_ms = 0xFFFFFFFF;
+
+        while (SDL_GetTicks() - start < duration_ms)
+        {
+            const dash_perf_t *p = dash_perf_get();
+            if (p->fps > 0)
+            {
+                samples++;
+                total_ms += p->frame_avg_ms;
+                if (p->frame_max_ms > max_ms) max_ms = p->frame_max_ms;
+                if (p->frame_min_ms < min_ms) min_ms = p->frame_min_ms;
+            }
+            SDL_Delay(1000); /* Sample once per perf window */
+        }
+
+        if (samples == 0) samples = 1;
+        char result[256];
+        snprintf(result, sizeof(result),
+            "bench_done idle samples=%u avg_ms=%u max_ms=%u min_ms=%u\n",
+            samples, total_ms / samples, max_ms, min_ms);
+        send_str(client->fd, result);
+    }
+    else if (strcmp(type, "scroll") == 0)
+    {
+        /* Scroll right N times, collecting perf after each */
+        char resp[128];
+        snprintf(resp, sizeof(resp), "OK bench_start scroll %d\n", count);
+        send_str(client->fd, resp);
+
+        uint32_t total_max = 0;
+        uint32_t total_avg_sum = 0;
+        uint32_t drops = 0; /* frames > 20ms */
+
+        for (int i = 0; i < count; i++)
+        {
+            /* Inject right arrow */
+            inject_key(LV_KEY_RIGHT);
+
+            /* Wait for animations to settle (RAIL_ANIM_MS = 550) + 1 perf window */
+            SDL_Delay(700);
+
+            const dash_perf_t *p = dash_perf_get();
+            char line_buf[256];
+            snprintf(line_buf, sizeof(line_buf),
+                "scroll=%d fps=%u avg_ms=%u max_ms=%u anims=%u draws=%u rects=%u\n",
+                i + 1, p->fps, p->frame_avg_ms, p->frame_max_ms,
+                p->anim_count, p->draw_calls, p->rounded_rects);
+            send_str(client->fd, line_buf);
+
+            total_avg_sum += p->frame_avg_ms;
+            if (p->frame_max_ms > total_max) total_max = p->frame_max_ms;
+            if (p->frame_max_ms > 20) drops++;
+        }
+
+        char result[256];
+        snprintf(result, sizeof(result),
+            "bench_done scroll=%d avg_ms=%u max_ms=%u drops=%u\n",
+            count, count > 0 ? total_avg_sum / count : 0, total_max, drops);
+        send_str(client->fd, result);
+    }
+    else
+    {
+        send_str(client->fd, "ERR unknown bench type (scroll|idle)\n");
+    }
+}
+
 /* ── Process one command line from a client ── */
 static void process_command(remote_client_t *client, char *line)
 {
@@ -281,6 +370,57 @@ static void process_command(remote_client_t *client, char *line)
         send_str(client->fd, "OK launching\n");
         strncpy(dash_launch_path, xbe_path, DASH_MAX_PATH - 1);
         lv_set_quit(LV_QUIT_OTHER);
+    }
+    else if (strcmp(line, "perf") == 0)
+    {
+        const dash_perf_t *p = dash_perf_get();
+        char buf[1024];
+        int n = lv_snprintf(buf, sizeof(buf),
+            "OK\n[perf]\n"
+            "fps=%u\n"
+            "frame_avg_ms=%u\n"
+            "frame_max_ms=%u\n"
+            "frame_min_ms=%u\n"
+            "task_handler_avg_ms=%u\n"
+            "task_handler_max_ms=%u\n"
+            "gpu_render_avg_ms=%u\n"
+            "gpu_render_max_ms=%u\n"
+            "gpu_wait_avg_ms=%u\n"
+            "gpu_wait_max_ms=%u\n"
+            "gui_heap_kb=%u/%u\n"
+            "sys_ram_mb=%u/%u\n"
+            "thumb_cache=%u/%u\n"
+            "anim_count=%u\n"
+            "obj_count=%u\n"
+            "draw_calls=%u\n"
+            "rounded_rects=%u\n"
+            "texture_binds=%u\n",
+            p->fps,
+            p->frame_avg_ms, p->frame_max_ms, p->frame_min_ms,
+            p->section_avg_ms[PERF_TASK_HANDLER], p->section_max_ms[PERF_TASK_HANDLER],
+            p->section_avg_ms[PERF_GPU_RENDER], p->section_max_ms[PERF_GPU_RENDER],
+            p->section_avg_ms[PERF_GPU_WAIT], p->section_max_ms[PERF_GPU_WAIT],
+            p->gui_heap_used / 1024, p->gui_heap_capacity / 1024,
+            p->sys_ram_used_mb, p->sys_ram_total_mb,
+            p->thumb_cache_count, p->thumb_cache_bytes,
+            p->anim_count, p->obj_count,
+            p->draw_calls, p->rounded_rects, p->texture_binds);
+        (void)n;
+        send_str(client->fd, buf);
+    }
+    else if (strcmp(line, "vsync on") == 0)
+    {
+        dash_settings.disable_vsync = false;
+        send_str(client->fd, "OK vsync on\n");
+    }
+    else if (strcmp(line, "vsync off") == 0)
+    {
+        dash_settings.disable_vsync = true;
+        send_str(client->fd, "OK vsync off\n");
+    }
+    else if (strncmp(line, "bench ", 6) == 0)
+    {
+        handle_bench(client, line + 6);
     }
     else if (strncmp(line, "reload", 6) == 0)
     {

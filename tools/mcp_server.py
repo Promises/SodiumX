@@ -248,6 +248,60 @@ def send_command(command: str) -> str:
 
 
 @server.tool()
+def perf() -> str:
+    """
+    Get current performance metrics from the Xbox.
+
+    Returns FPS, frame times (avg/max/min), CPU breakdown (task handler, GPU render,
+    GPU wait), memory usage (GUI heap, system RAM, thumbnail cache), LVGL stats
+    (animation count, object count), and GPU draw stats (draw calls, rounded rects,
+    texture binds). Data is aggregated over 1-second windows.
+    """
+    conn = _connect()
+    try:
+        return conn.send_cmd("perf")
+    finally:
+        conn.close()
+
+
+@server.tool()
+def bench(test: str = "scroll", count: int = 20) -> str:
+    """
+    Run an automated benchmark on Xbox.
+
+    Measures real frame times during controlled actions. Results stream back
+    line-by-line, ending with a bench_done summary.
+
+    Args:
+        test: Benchmark type — "scroll" (navigate tiles, measure per-scroll stats)
+              or "idle" (measure static frame times for N seconds).
+        count: For scroll: number of right-arrow presses. For idle: seconds to measure.
+    """
+    conn = _connect()
+    try:
+        conn.sock.settimeout(max(60, count * 2))
+        conn.sock.sendall(f"bench {test} {count}\n".encode())
+
+        # Read all lines until bench_done
+        result_lines = []
+        buf = ""
+        while True:
+            chunk = conn.sock.recv(4096).decode("utf-8", errors="replace")
+            if not chunk:
+                break
+            buf += chunk
+            while "\n" in buf:
+                line, buf = buf.split("\n", 1)
+                result_lines.append(line)
+                if line.startswith("bench_done") or line.startswith("ERR"):
+                    return "\n".join(result_lines)
+
+        return "\n".join(result_lines)
+    finally:
+        conn.close()
+
+
+@server.tool()
 def build_and_deploy(skip_build: bool = False) -> str:
     """
     Run the rapid.sh build-deploy-reload cycle.
