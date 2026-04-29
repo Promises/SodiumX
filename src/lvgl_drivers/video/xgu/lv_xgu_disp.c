@@ -32,8 +32,9 @@ static void begin_frame()
     pb_reset();
     pb_target_back_buffer();
     p = pb_begin();
-    p = xgu_set_color_clear_value(p, 0xff000000);
-    p = xgu_clear_surface(p, XGU_CLEAR_Z | XGU_CLEAR_STENCIL | XGU_CLEAR_COLOR);
+    /* Only clear Z and stencil — skip color clear to avoid black flash
+     * between frames. LVGL full_refresh redraws every pixel anyway. */
+    p = xgu_clear_surface(p, XGU_CLEAR_Z | XGU_CLEAR_STENCIL);
     pb_end(p);
 }
 

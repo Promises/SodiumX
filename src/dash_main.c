@@ -316,7 +316,8 @@ static const char *tab_names[] = {"Recent", "Games", "Apps", "Files", "System"};
 static bool tab_nav_active = false;
 static int tab_nav_origin_page = -1;
 static int tab_nav_origin_tab = 0;
-static lv_obj_t *tab_nav_focus_obj; /* invisible focusable for tab key events */
+int tab_nav_origin_sel = 1;          /* saved selected_index for same-page restore */
+static lv_obj_t *tab_nav_focus_obj;  /* invisible focusable for tab key events */
 
 /* Hero strip + meta row labels (updated by scroller on focus change) */
 static lv_obj_t *hero_eyebrow;
@@ -631,6 +632,7 @@ void dash_tab_bar_enter_nav(int current_page)
     tab_nav_active = true;
     tab_nav_origin_page = current_page;
     tab_nav_origin_tab = current_tab;
+    tab_nav_origin_sel = dash_scroller_get_selected_index();
 
     /* Create an invisible focusable object for key events */
     tab_nav_focus_obj = lv_obj_create(lv_scr_act());
@@ -649,7 +651,8 @@ void dash_tab_bar_enter_nav(int current_page)
 void dash_tab_bar_exit_nav(bool cancel)
 {
     if (!tab_nav_active) return;
-    tab_nav_active = false;
+    /* Keep tab_nav_active TRUE until after focus is restored — prevents
+     * LVGL focus cycling from corrupting selected_index via item_selection_callback. */
 
     if (cancel)
     {
@@ -666,15 +669,26 @@ void dash_tab_bar_exit_nav(bool cancel)
     /* Discard the stale focus stack entry (don't pop to a potentially wrong tile) */
     if (focus_stack_index > 0) focus_stack_index--;
 
-    /* Restore normal tab styling */
-    tab_bar_update();
-
-    /* Re-set the correct page so focus lands on a valid, visible tile */
-    int target_page = cancel ? tab_nav_origin_page : page_for_tab(current_tab);
-    if (target_page >= 0)
-        dash_scroller_set_page_index(target_page);
-    else if (tab_nav_origin_page >= 0)
-        dash_scroller_set_page_index(tab_nav_origin_page);
+    /* Only reset the page if the tab actually changed.
+     * If same tab, just restore focus to the current tile. */
+    if (current_tab != tab_nav_origin_tab)
+    {
+        tab_nav_origin_sel = 1;
+        tab_nav_active = false;
+        tab_bar_update();
+        int target_page = page_for_tab(current_tab);
+        if (target_page >= 0)
+            dash_scroller_set_page_index(target_page);
+        else
+            dash_scroller_restore_focus();
+    }
+    else
+    {
+        /* Same tab — restore focus without resetting selection or re-snapping */
+        dash_scroller_restore_focus();
+        tab_nav_active = false;
+        tab_bar_update();
+    }
 }
 
 /* Update the meta row with title info */

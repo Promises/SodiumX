@@ -13,9 +13,19 @@
 #define BACKDROP_BPP 4
 #endif
 
-/* ── Gaussian blur (box blur x3) on decoded JPEG buffer ── */
+/* ── Gaussian blur (box blur x2) on decoded JPEG buffer ── */
 #define BLUR_RADIUS  8
-#define BLUR_PASSES  3
+#define BLUR_PASSES  2
+
+/* Reciprocal LUT: fast_div[n] ≈ (1<<16)/n. Use (val * fast_div[n]) >> 16
+ * instead of val/n. Eliminates expensive integer division in blur inner loop.
+ * Max count = 2*BLUR_RADIUS+1 = 17. */
+static const uint32_t fast_div[] = {
+    0,      65536,  32768,  21845,  16384,  13107,  10923,  9362,   /* 0-7  */
+    8192,   7282,   6554,   5958,   5461,   5041,   4681,   4369,   /* 8-15 */
+    4096,   3855,                                                    /* 16-17 */
+};
+#define FAST_DIV(val, count) (((uint32_t)(val) * fast_div[count]) >> 16)
 
 static void box_blur_rgb565(uint16_t *src, uint16_t *dst, int w, int h, int radius)
 {
@@ -34,9 +44,9 @@ static void box_blur_rgb565(uint16_t *src, uint16_t *dst, int w, int h, int radi
         }
         for (int x = 0; x < w; x++)
         {
-            dst[y * w + x] = (uint16_t)(((r_acc / count) << 11) |
-                                         ((g_acc / count) << 5)  |
-                                          (b_acc / count));
+            dst[y * w + x] = (uint16_t)(((FAST_DIV(r_acc, count)) << 11) |
+                                         ((FAST_DIV(g_acc, count)) << 5)  |
+                                          (FAST_DIV(b_acc, count)));
             int right = x + radius + 1;
             if (right < w)
             {
@@ -72,9 +82,9 @@ static void box_blur_rgb565(uint16_t *src, uint16_t *dst, int w, int h, int radi
         }
         for (int y = 0; y < h; y++)
         {
-            src[y * w + x] = (uint16_t)(((r_acc / count) << 11) |
-                                         ((g_acc / count) << 5)  |
-                                          (b_acc / count));
+            src[y * w + x] = (uint16_t)(((FAST_DIV(r_acc, count)) << 11) |
+                                         ((FAST_DIV(g_acc, count)) << 5)  |
+                                          (FAST_DIV(b_acc, count)));
             int bot = y + radius + 1;
             if (bot < h)
             {
@@ -115,9 +125,9 @@ static void box_blur_bgra32(uint32_t *src, uint32_t *dst, int w, int h, int radi
         for (int x = 0; x < w; x++)
         {
             dst[y * w + x] = (0xFF000000u) |
-                              ((b_acc / count) << 16) |
-                              ((g_acc / count) << 8)  |
-                               (r_acc / count);
+                              ((FAST_DIV(b_acc, count)) << 16) |
+                              ((FAST_DIV(g_acc, count)) << 8)  |
+                               (FAST_DIV(r_acc, count));
             int right = x + radius + 1;
             if (right < w)
             {
@@ -154,9 +164,9 @@ static void box_blur_bgra32(uint32_t *src, uint32_t *dst, int w, int h, int radi
         for (int y = 0; y < h; y++)
         {
             src[y * w + x] = (0xFF000000u) |
-                              ((b_acc / count) << 16) |
-                              ((g_acc / count) << 8)  |
-                               (r_acc / count);
+                              ((FAST_DIV(b_acc, count)) << 16) |
+                              ((FAST_DIV(g_acc, count)) << 8)  |
+                               (FAST_DIV(r_acc, count));
             int bot = y + radius + 1;
             if (bot < h)
             {
@@ -223,11 +233,8 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
     uint32_t req_seq = ctx->seq;
     free(ctx);
 
-    lvgl_getlock();
-
     if (img == NULL)
     {
-        lvgl_removelock();
         return;
     }
 
@@ -235,9 +242,27 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
     if (req_seq != backdrop_seq)
     {
         free(mem);
-        lvgl_removelock();
         return;
     }
+
+    /* Blur BEFORE taking the LVGL lock — operates only on the pixel buffer,
+     * doesn't touch any LVGL objects. This keeps the lock hold time minimal. */
+    {
+        uint32_t blur_start = SDL_GetTicks();
+        backdrop_blur(img, w, h);
+        uint32_t blur_ms = SDL_GetTicks() - blur_start;
+        dash_printf(LEVEL_TRACE, "[PERF] backdrop blur: %ums (%dx%d, %d passes)\n",
+                    blur_ms, w, h, BLUR_PASSES);
+    }
+
+    /* Re-check sequence after blur — another scroll may have happened */
+    if (req_seq != backdrop_seq)
+    {
+        free(mem);
+        return;
+    }
+
+    lvgl_getlock();
 
     /* Free previous image if any */
     if (slot->mem)
@@ -250,11 +275,6 @@ static void backdrop_decode_cb(void *img, void *mem, int w, int h, void *user_da
     slot->image = img;
     slot->w = w;
     slot->h = h;
-
-    /* Gaussian blur approximation (box blur x3) on the small decoded image.
-     * Runs once per backdrop change — zero per-frame cost. At 256px source
-     * scaled 5x to screen, radius 8 here ≈ Gaussian sigma ~70 on screen. */
-    backdrop_blur(img, w, h);
 
     lv_img_cf_t cf = LV_IMG_CF_TRUE_COLOR;
     if (BACKDROP_BPP * 8 != LV_COLOR_DEPTH)

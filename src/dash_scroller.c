@@ -711,17 +711,15 @@ static void item_selection_callback(lv_event_t *event)
 
     if (e == LV_EVENT_FOCUSED)
     {
+        /* Ignore focus events from LVGL group cycling during tab nav —
+         * these corrupt selected_index as LVGL walks through all tiles. */
+        if (dash_tab_nav_is_active())
+            return;
+
         /* O(1) index lookup via cached rail_index */
         selected_index = t->rail_index;
-        if (suppress_focus_anim)
-        {
-            suppress_focus_anim = false;
-            rail_update_focus(true);
-        }
-        else
-        {
-            rail_update_focus(true);
-        }
+        suppress_focus_anim = false;
+        rail_update_focus(true);
     }
     else if (e == LV_EVENT_KEY)
     {

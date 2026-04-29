@@ -26,6 +26,8 @@ bool dash_scroller_get_sort_value(const char *page_title, int *sort_value);
 void dash_scroller_resort_page(const char *page_title);
 void dash_scroller_clear_page(const char *page_title);
 void dash_scroller_rescan_page(const char *page_title);
+void dash_scroller_restore_focus(void);
+int dash_scroller_get_selected_index(void);
 int dash_scroller_get_page_count();
 #ifdef __cplusplus
 }
