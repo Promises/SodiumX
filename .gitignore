@@ -11,4 +11,5 @@ dash.xml
 *.iso
 *.inl
 /.idea/
+*.iml
 /out/
