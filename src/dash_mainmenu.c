@@ -29,7 +29,7 @@ static const overlay_menu_item_t menu_items[] = {
     {"Launch DVD",          LV_SYMBOL_AUDIO,     dash_launch_dvd,     NULL, "Accept \"Launch DVD\""},
     {"Utilities",           LV_SYMBOL_LIST,      dash_utilities,      NULL, NULL},
     {"Settings",            LV_SYMBOL_SETTINGS,  dash_settings_new,   NULL, NULL},
-    {"Settings (Legacy)",   LV_SYMBOL_SETTINGS,  dash_settings_page,  NULL, NULL},
+//     {"Settings (Legacy)",            LV_SYMBOL_SETTINGS,  dash_settings_page,   NULL, NULL},
     {"About SodiumX",       LV_SYMBOL_EYE_OPEN,  dash_open_about,     NULL, NULL},
     {"Reboot",              LV_SYMBOL_REFRESH,   dash_reboot,         NULL, "Accept \"Reboot\""},
     {"Shutdown",            LV_SYMBOL_POWER,     dash_shutdown,       NULL, "Accept \"Shutdown\""},

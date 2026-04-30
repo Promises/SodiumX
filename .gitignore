@@ -10,3 +10,5 @@ dash.xml
 *.exe
 *.iso
 *.inl
+/.idea/
+/out/
