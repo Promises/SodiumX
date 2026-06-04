@@ -11,6 +11,11 @@
 #include "platform/xbox/xbox_info.h"
 #endif
 
+/* Build-time version string (overridable via env at build; see Makefile.nxdk). */
+#ifndef SODIUMX_VERSION
+#define SODIUMX_VERSION "2.4.0-modern"
+#endif
+
 /* ══════════════════════════════════════════════════════════════════
  *  Helpers (shared with old settings — same create_setting_row etc.)
  * ══════════════════════════════════════════════════════════════════ */
@@ -773,7 +778,7 @@ static void build_about(lv_obj_t *body)
 {
     section_header(body, "About SodiumX", "A minimal, GPU-accelerated dashboard.");
 
-    create_readout_new(body, "Version", "2.4.0-modern", true);
+    create_readout_new(body, "Version", SODIUMX_VERSION, true);
 #ifdef NXDK
     create_readout_new(body, "Renderer", "nv2a GPU (XGU)", false);
 #else

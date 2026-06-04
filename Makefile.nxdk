@@ -3,7 +3,17 @@ GEN_XISO = $(XBE_TITLE).iso
 NXDK_SDL = y
 NXDK_NET = y
 
-GIT_COMMIT_HASH := "$(shell git describe --abbrev=7 --always)"
+# Version strings — overridable via env/CLI (CI passes the release tag/sha).
+# Fall back to git when not provided (local builds with a .git dir).
+GIT_COMMIT_HASH ?=
+ifeq ($(strip $(GIT_COMMIT_HASH)),)
+GIT_COMMIT_HASH := $(shell git describe --abbrev=7 --always 2>/dev/null)
+endif
+
+SODIUMX_VERSION ?=
+ifeq ($(strip $(SODIUMX_VERSION)),)
+SODIUMX_VERSION := 2.4.0-modern
+endif
 
 LVGL_DIR = src/libs/lvgl
 LV_CONF_PATH = "lv_conf.h"
@@ -86,6 +96,7 @@ CFLAGS += \
     -DLV_LVGL_H_INCLUDE_SIMPLE -DLV_CONF_PATH=$(LV_CONF_PATH) \
     -DWIN32 \
     -DBUILD_VERSION=\"$(GIT_COMMIT_HASH)\" \
+    -DSODIUMX_VERSION=\"$(SODIUMX_VERSION)\" \
     -DSDL_DISABLE_JOYSTICK_INIT_DELAY \
     -DLVGL_USE_CUSTOM_CONTROLLER_MAP \
     -DLVGL_USE_CUSTOM_KEYBOARD_MAP \

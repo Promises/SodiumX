@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  Xbox:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Build via Docker
+      run: |
+        docker build --platform linux/amd64 -f Dockerfile.xbox --target builder -t sodiumx-xbox \
+          --build-arg SODIUMX_VERSION="${GITHUB_REF_NAME}" \
+          --build-arg GIT_COMMIT_HASH="${GITHUB_SHA::7}" .
+        mkdir -p out
+        docker run --rm --platform linux/amd64 -v "$(pwd)/out":/out sodiumx-xbox \
+          sh -c "cp /usr/src/sodiumx/bin/default.xbe /usr/src/sodiumx/SodiumX.iso /out/"
+    - name: Package Release Assets
+      run: |
+        mkdir -p release
+        cp out/default.xbe "release/SodiumX-${GITHUB_REF_NAME}.xbe"
+        cp out/SodiumX.iso "release/SodiumX-${GITHUB_REF_NAME}.iso"
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: release/*
+        generate_release_notes: true
+        draft: false
+        prerelease: ${{ contains(github.ref_name, '-') }}
