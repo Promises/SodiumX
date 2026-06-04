@@ -20,24 +20,23 @@ jobs:
   Xbox:
     runs-on: ubuntu-latest
     steps:
-    - name: Install and Setup Dependencies
-      run: |
-        sudo apt-get update -y && sudo apt-get install -y flex bison clang lld llvm
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
         submodules: recursive
-    - name: Compile
+    - name: Build via Docker
       run: |
-        eval $(src/libs/nxdk/bin/activate -s)
-        make -f Makefile.nxdk -j$(nproc)
+        docker build --platform linux/amd64 -f Dockerfile.xbox --target builder -t sodiumx-xbox .
+        mkdir -p out
+        docker run --rm --platform linux/amd64 -v "$(pwd)/out":/out sodiumx-xbox \
+          sh -c "cp /usr/src/sodiumx/bin/default.xbe /usr/src/sodiumx/SodiumX.iso /out/"
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: dash_xbox
         path: |
-          SodiumX.iso
-          bin
+          out/SodiumX.iso
+          out/default.xbe
 
   Windows:
     runs-on: windows-latest
